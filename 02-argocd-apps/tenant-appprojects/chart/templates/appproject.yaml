@@ -1,0 +1,24 @@
+# gitops-strategy.md §6: every app onboarded via the tenant-onboarding ApplicationSet
+# gets its own AppProject - sourceRepos scoped to idp-service-catalog + this app's own
+# gitopsRepoUrl only, destinations scoped to this app's own app-<appName>-* namespaces
+# on this cluster only. This IS the real enforcement boundary (a throwaway Application
+# pointed outside sourceRepos gets hard-rejected by ArgoCD at the API level, already
+# live-tested in platform-cicd for the analogous single-project case) - not just
+# documentation of intent.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ .Values.appName }}
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: tenant-onboarding
+    platform.io/app: {{ .Values.appName }}
+spec:
+  description: "Per-app AppProject for {{ .Values.appName }}, gitops-strategy.md §6"
+  sourceRepos:
+    - {{ .Values.idpServiceCatalogRepoUrl }}
+    - {{ .Values.gitopsRepoUrl }}
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "app-{{ .Values.appName }}-*"

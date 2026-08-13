@@ -5,6 +5,14 @@
 # manifest" split `**/packages-application.yaml` already established for
 # 10-crds-operators/crossplane/, just named for what it actually carries (a Secret,
 # not packages) rather than overloading that name for something it doesn't describe.
+# `**/applicationset.yaml` added 2026-08-13 alongside `02-argocd-apps/` - a new manifest
+# KIND (ApplicationSet, not Application) this glob previously had no pattern for at all.
+# REMINDER (hit live once already, in 20-service-catalog's own wiring): this
+# Application's own .spec does NOT self-update from git - after editing this glob,
+# gitops-cluster-dev-root itself needs a manual hard-refresh
+# (`kubectl patch application gitops-cluster-dev-root -n argocd --type merge -p
+# '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'`) before its
+# newly-includable children get discovered - only the discovered children auto-sync.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -21,7 +29,7 @@ spec:
     path: .
     directory:
       recurse: true
-      include: "{**/application.yaml,**/packages-application.yaml,**/secret-application.yaml}"
+      include: "{**/application.yaml,**/packages-application.yaml,**/secret-application.yaml,**/applicationset.yaml}"
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

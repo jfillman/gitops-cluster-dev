@@ -1,0 +1,84 @@
+# The real §5 two-source Application, one per (app, env) - generated from
+# gitops-cluster-dev-tenants/tenants/<app>/<env>/identity.yaml. Direct descendant of
+# platform-cicd's own tenant-onboarding-applicationset.yaml (CICD onboarding), same
+# two-source shape, generalized here to app DEPLOYMENT per gitops-strategy.md §5: source
+# 0 renders idp-service-catalog's shared idp-application chart with an operator-owned
+# valuesObject (identity/placement only - appName/cluster/envName), source 1 is a
+# $ref-only pointer into the app's own gitopsRepoUrl supplying just the env's own
+# values.yaml as a developer-owned valueFiles overlay. helm.valuesObject beats
+# helm.valueFiles for any overlapping key - live-attack-tested in platform-cicd, not
+# just assumed here.
+#
+# identity.yaml duplicates app.yaml's gitopsRepoUrl/githubOwner (see
+# ../tenant-appprojects/applicationset.yaml's own header for why: this ApplicationSet's
+# git generator only sees the ONE matched file per entry, and a matrix generator to join
+# the coarser app.yaml with each per-env identity.yaml is real added complexity these
+# are automation-written files don't need - no hand-maintained-file drift risk).
+#
+# project: "{{.appName}}" (not default) is the actual enforcement boundary from §6 -
+# this Application can only ever sync from the sourceRepos the sibling
+# tenant-appprojects ApplicationSet scoped for this same app. No explicit ordering
+# between the two ApplicationSets: if the AppProject doesn't exist yet when this
+# Application is generated, ArgoCD just reports it can't reconcile and self-heals once
+# the AppProject lands - same eventually-consistent pattern relied on elsewhere in this
+# repo (root-app-of-apps.yaml's own children).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-onboarding
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: tenant-onboarding
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=invalid"]
+  generators:
+    - git:
+        repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
+        revision: main
+        files:
+          - path: "tenants/*/*/identity.yaml"
+  template:
+    metadata:
+      name: "{{.appName}}-{{.env}}"
+      labels:
+        platform.io/component: cluster-config
+        platform.io/subcomponent: tenant-onboarding
+        platform.io/app: "{{.appName}}"
+        platform.io/env: "{{.env}}"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      namespace: argocd
+    spec:
+      project: "{{.appName}}"
+      sources:
+        - repoURL: https://github.com/jfillman/idp-service-catalog.git
+          targetRevision: v0.1.0
+          path: charts/idp-application
+          helm:
+            valuesObject:
+              appName: "{{.appName}}"
+              cluster: kind-dev
+              envName: "{{.env}}"
+            valueFiles:
+              # $-ref value files resolve relative to that source's checkout ROOT -
+              # confirmed live in platform-cicd's own version of this pattern.
+              - $appsrc/kind-dev/{{.env}}/values.yaml
+        - repoURL: "{{.gitopsRepoUrl}}"
+          targetRevision: main
+          ref: appsrc
+          # Without this, ArgoCD's directory-source auto-detection would try to apply
+          # every *.yaml in the app's own gitops repo as a raw manifest - this source
+          # exists only to be $ref'd for valueFiles above, confirmed real gotcha already
+          # hit and documented in platform-cicd's own version of this pattern.
+          directory:
+            exclude: "*"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "app-{{.appName}}-{{.env}}"
+      syncPolicy:
+        automated:
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

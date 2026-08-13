@@ -1,0 +1,11 @@
+apiVersion: v2
+# Renders exactly one AppProject per app - the ApplicationSet in ../applicationset.yaml
+# is what makes this one-per-app instead of a manual chart install; this chart itself
+# doesn't know or care about tenants, it just turns the values it's given into one
+# AppProject object. See ../applicationset.yaml's own header for why an ApplicationSet
+# can't generate an AppProject resource directly (it only generates Application
+# objects) - this tiny chart is the workaround, values-driven per gitops-strategy.md
+# §6's spec (sourceRepos/destinations scoped per app).
+name: tenant-appproject
+description: Renders one per-app AppProject, values-driven, for the tenant-appprojects ApplicationSet
+version: 0.1.0

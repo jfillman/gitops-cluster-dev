@@ -1,0 +1,64 @@
+# One per-app AppProject (gitops-strategy.md §6), generated from
+# gitops-cluster-dev-tenants/tenants/<app>/app.yaml - deliberately the COARSER of the
+# two tenant-onboarding ApplicationSets (one entry per app, not per app+env), since an
+# app's AppProject is shared across every env it has on this cluster; generating it from
+# the finer-grained per-env identity.yaml files instead would produce N conflicting
+# ApplicationSet entries all trying to own the same AppProject name.
+#
+# ApplicationSet can only generate Application objects, not arbitrary resource kinds -
+# there's no native "AppProjectSet" generator. The workaround here (same shape used
+# elsewhere in the ArgoCD ecosystem for this exact gap): generate an Application per
+# app whose only job is to render ./chart's single AppProject template, values-driven.
+#
+# No {{ }}-vs-Helm-template escaping needed here (unlike platform-cicd's chart-embedded
+# tenant-onboarding-applicationset.yaml) - this repo's manifests are plain YAML, never
+# passed through Helm themselves, so ArgoCD's own goTemplate syntax below is written
+# directly, no double-escaping.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-appprojects
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: tenant-onboarding
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=invalid"]
+  generators:
+    - git:
+        repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
+        revision: main
+        files:
+          - path: "tenants/*/app.yaml"
+  template:
+    metadata:
+      name: "{{.appName}}-appproject"
+      labels:
+        platform.io/component: cluster-config
+        platform.io/subcomponent: tenant-onboarding
+        platform.io/app: "{{.appName}}"
+      # Cascade-deletes the AppProject if a tenant's app.yaml is ever removed - same
+      # finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/jfillman/gitops-cluster-dev.git
+        targetRevision: main
+        path: 02-argocd-apps/tenant-appprojects/chart
+        helm:
+          valuesObject:
+            appName: "{{.appName}}"
+            gitopsRepoUrl: "{{.gitopsRepoUrl}}"
+            idpServiceCatalogRepoUrl: "https://github.com/jfillman/idp-service-catalog.git"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
