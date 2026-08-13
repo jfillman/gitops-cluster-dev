@@ -42,6 +42,21 @@ Grafana/Loki+Tempo, `github` MCP addon - see `idp_session_phase2_holmesgpt`) wer
 never captured into a file anywhere findable on disk, so reconstructing it accurately
 needs real work, not a guess. Deferred, not forgotten.
 
+**Two more real bugs, both in `minio/minio` (community, `charts.min.io`) 5.4.0
+specifically, both fixed live**: (1) the source README's `--set
+defaultBuckets="thanos,loki,tempo"` doesn't match this chart version's actual
+values schema at all - silently ignored (Helm doesn't error on unknown keys), real
+field is `buckets:` (a list of `{name, policy}` objects); (2) even with `buckets:`
+set correctly, the chart's own post-install Job never actually creates them - its
+init script defines a `createBucket()` shell function but never calls it, confirmed
+via a clean `helm template` render, not a deployment fluke. Worked around with a
+plain `create-buckets-job.yaml` (`mc mb --ignore-existing`) rather than patching
+the chart. Downstream effect while these were being tracked down:
+`tempo-0`/`thanos-storegateway-0` show real restart counts in their pod history
+(crash-looped on "bucket does not exist" before the buckets existed) - both
+stable/healthy once the buckets landed; the restart counts are expected history,
+not a live problem.
+
 ## kind-observe's own state (documented, not yet re-templated or adopted)
 
 This section describes `kind-observe` specifically, the cluster this repo's own
