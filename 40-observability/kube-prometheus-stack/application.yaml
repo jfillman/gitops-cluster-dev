@@ -1,0 +1,63 @@
+# Deliberately minimal, kind-dev-scoped install - NOT the same values as
+# kind-observe's own kube-prometheus-stack (see /Users/jerf/tech/observability/
+# kube-prometheus-stack-values.yaml, the source of this repo's 40-observability
+# README table): that file wires Thanos sidecar/objstore, Loki, and Tempo
+# datasources, none of which exist on kind-dev - reusing it as-is would either
+# fail outright (missing thanos-objstore-config Secret) or leave dangling Grafana
+# datasources pointed at services that don't exist. kind-dev has only ever run
+# kube-prometheus-stack + HolmesGPT (idp_session_phase2_holmesgpt - Loki/Tempo/
+# Thanos/MinIO/otel-collector explicitly skipped, "not needed for this proof"),
+# so this Application matches THAT scope, not kind-observe's fuller stack.
+#
+# Release name is exactly `kube-prometheus-stack` deliberately - the chart's own
+# default ruleSelector/serviceMonitorSelector (serviceMonitorSelectorNilUsesHelmValues/
+# ruleSelectorNilUsesHelmValues left at their chart defaults, true) matches
+# `release: kube-prometheus-stack` on ServiceMonitor/PrometheusRule objects, which
+# both idp-service-catalog's SLO Composition (sloth/application.yaml's own
+# extraLabels) and idp-application's own serviceMonitor.additionalLabels default
+# already assume - confirmed against this real install, not left as an
+# unconfirmed placeholder anymore (see idp-application chart README).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: observability
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 87.19.1
+    helm:
+      releaseName: kube-prometheus-stack
+      valuesObject:
+        grafana:
+          enabled: true
+          adminPassword: prom-operator # change this for anything beyond local learning
+          sidecar:
+            dashboards:
+              enabled: true
+              # label/labelValue left at chart defaults (grafana_dashboard: "1") -
+              # matches idp-service-catalog's SLO Composition dashboard ConfigMap
+              # exactly (compositions/slo/templates/dashboard-configmap.yaml).
+        prometheus:
+          prometheusSpec:
+            retention: 6h
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # Same annotation-size limit hit on ArgoCD's and external-secrets' own CRDs
+      # (see 01-argocd/README.md) - kube-prometheus-stack's CRDs (Prometheus,
+      # Alertmanager, PrometheusRule, ServiceMonitor, ThanosRuler, Probe, ...) are
+      # large enough to hit it too. Added proactively, not reactively - confirmed
+      # necessary live once synced (see this repo's own commit history for the
+      # concrete error if this comment predates that confirmation).
+      - ServerSideApply=true
