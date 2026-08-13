@@ -37,9 +37,11 @@ spec:
         # defaultBuckets="thanos\,loki\,tempo"` doesn't match this chart version's
         # actual schema at all (`helm show values minio/minio --version 5.4.0` has
         # no `defaultBuckets` key) - Helm silently ignores unknown value keys rather
-        # than erroring, so the buckets never got created and Tempo/Loki crash-
-        # looped on "bucket does not exist" until this was found and fixed. The
-        # chart's real field is `buckets:`, a list of {name, policy} objects.
+        # than erroring. Real field is `buckets:`, a list of {name, policy} objects -
+        # set correctly below. Doesn't actually create the buckets though: see
+        # create-buckets-job.yaml in this same directory for a SECOND real bug this
+        # chart version has (the post-install Job's own createBucket() function is
+        # defined but never called), and the workaround.
         buckets:
           - name: thanos
             policy: none
