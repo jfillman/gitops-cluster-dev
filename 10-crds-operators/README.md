@@ -6,8 +6,13 @@ ingress — per `gitops-strategy.md` §3.
 ## Adopted, real, live-verified this pass
 
 - `crossplane/` — the Crossplane controller itself (Helm), `provider-kubernetes`, and
-  the four Functions already in use (`function-auto-ready`, `function-go-templating`,
-  `function-patch-and-transform`, `function-rollout-watcher`).
+  the Functions in use: the original four (`function-auto-ready`,
+  `function-go-templating`, `function-patch-and-transform`, `function-rollout-watcher`)
+  plus `function-go-templating-slo` (`function-slo-templates.yaml`) — a second
+  `function-go-templating` registration with its own `DeploymentRuntimeConfig`/
+  ConfigMap mount, dedicated to the `SLO` Composition
+  (`idp-service-catalog/compositions/slo/`) so its templates don't share the
+  ai-rollout `Application` Composition's own `/templates` mount.
 - `cert-manager/` — Helm, `crds.enabled: true` only, no other customization.
 - `external-secrets/` — Helm, fully default values.
 

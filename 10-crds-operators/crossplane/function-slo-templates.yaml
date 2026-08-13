@@ -1,0 +1,48 @@
+# Dedicated function-go-templating registration for the SLO Composition
+# (idp-service-catalog/compositions/slo/), deliberately NOT reusing the
+# `function-go-templating` Function in functions.yaml (whose runtimeConfigRef
+# mount-templates mounts the ai-rollout Application Composition's own
+# "templates" ConfigMap at /templates - 4 files keyed on spec.parameters.*
+# fields an SLO XR doesn't have). A second Composition pointing at that same
+# mount would render those 4 files against every SLO XR too. Same package,
+# separate Function object + separate runtime mount instead.
+#
+# The "slo-templates" ConfigMap this ends up mounting is generated (not
+# hand-written) via idp-service-catalog/compositions/slo/
+# generate-templates-configmap.sh - not GitOps-tracked yet, same "one manual
+# step" gap the ai-rollout prototype's own templates ConfigMap already has.
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-go-templating-slo
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.12.3
+  runtimeConfigRef:
+    name: mount-slo-templates
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: mount-slo-templates
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              volumeMounts:
+                - mountPath: /templates
+                  name: templates
+                  readOnly: true
+          volumes:
+            - name: templates
+              configMap:
+                name: slo-templates

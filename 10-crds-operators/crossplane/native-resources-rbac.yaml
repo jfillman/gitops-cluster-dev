@@ -1,0 +1,29 @@
+# Crossplane's own controller ServiceAccount has no built-in RBAC for native
+# resource kinds a Composition composes directly (only for Crossplane's own
+# API types) - each one needs an explicit grant here, aggregated into the
+# controller's role via the rbac.crossplane.io/aggregate-to-crossplane label.
+# This ClusterRole existed live on kind-dev already (argoproj.io/batch, for
+# the ai-rollout Application Composition's Rollout/AnalysisTemplate/Job) but
+# was never captured in git - recreated here from live state, extended with
+# monitoring.coreos.com (PrometheusRule) for the new SLO Composition. Found
+# live: without this, `cannot compose resources: ... prometheusrules ... is
+# forbidden` on every SLO XR (ConfigMap needed no such grant - already covered
+# by Crossplane's own core-API-group role).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crossplane:native-resources:aggregate-to-crossplane
+  labels:
+    rbac.crossplane.io/aggregate-to-crossplane: "true"
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts", "rollouts/status", "analysistemplates", "analysistemplates/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "jobs/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheusrules", "prometheusrules/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
