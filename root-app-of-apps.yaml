@@ -1,0 +1,30 @@
+# The one resource applied manually, once, per gitops-strategy.md §4's bootstrap
+# sequence - everything after this is a normal PR to this repo. Recursively finds every
+# Application manifest under this repo (currently only 10-crds-operators/*/ has real
+# ones; the other groups are README-only placeholders and contribute nothing until they
+# have real Application manifests of their own).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-cluster-dev-root
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: app-of-apps
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jfillman/gitops-cluster-dev.git
+    targetRevision: main
+    path: .
+    directory:
+      recurse: true
+      include: "*/application.yaml,*/*/application.yaml,*/*/packages-application.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

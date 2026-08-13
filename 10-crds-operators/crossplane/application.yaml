@@ -1,0 +1,27 @@
+# ArgoCD Application for Crossplane itself. Values match the live `helm get values
+# crossplane -n crossplane-system` output exactly (null — fully default install) so
+# adoption is a no-op sync, not a recreation. project: default for now — moves to a
+# real cluster-admin-scoped AppProject once the argocd-platform/argocd-apps split
+# happens (gitops-strategy.md §4, deferred with 01-argocd/).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  project: default
+  source:
+    repoURL: https://charts.crossplane.io/stable
+    chart: crossplane
+    targetRevision: 2.3.4
+    helm:
+      releaseName: crossplane
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crossplane-system
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
