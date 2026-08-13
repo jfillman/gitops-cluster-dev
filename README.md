@@ -42,6 +42,19 @@ real and live-verified as of 2026-08-13, built inside the existing single `01-ar
 instance rather than a real second `argocd-apps` instance (that split is still deferred,
 see below) — they're not fed by a real XRD yet (`NodeJSApplication`/
 `ApplicationEnvironment` aren't built), verified with a throwaway test tenant instead.
+That verification pass confirmed the `AppProject.sourceRepos` boundary really rejects
+(`InvalidSpecError` on a repo not in scope, at the ArgoCD reconciler level — same
+mechanism already proven in `platform-cicd`), and surfaced a real bug worth knowing
+before touching either `ApplicationSet` again: **deleting an `AppProject` before its
+dependent per-app `Application`'s own `resources-finalizer.argocd.argoproj.io` finishes
+permanently stuck that `Application`** — its finalizer needs to look up the very
+`AppProject` that's already gone (`"error getting app project ... not found"`, retried
+forever). Hit because `tenant-appprojects` and `tenant-onboarding` prune independently,
+on their own separate git-generator cycles, with no ordering between them. Worked around
+by clearing the stuck `Application`'s finalizer by hand for the throwaway test case —
+not yet a designed fix (a real one likely needs a `sync-wave`-equivalent ordering
+constraint on generator-driven pruning, which ApplicationSet doesn't obviously expose;
+worth investigating before a real tenant's `Application` gets stuck the same way).
 
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
 `01-argocd` (ArgoCD managing its own install has real bootstrap-ordering risk, doing
