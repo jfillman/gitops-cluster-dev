@@ -4,11 +4,19 @@
 # controller's role via the rbac.crossplane.io/aggregate-to-crossplane label.
 # This ClusterRole existed live on kind-dev already (argoproj.io/batch, for
 # the ai-rollout Application Composition's Rollout/AnalysisTemplate/Job) but
-# was never captured in git - recreated here from live state, extended with
-# monitoring.coreos.com (PrometheusRule) for the new SLO Composition. Found
-# live: without this, `cannot compose resources: ... prometheusrules ... is
-# forbidden` on every SLO XR (ConfigMap needed no such grant - already covered
-# by Crossplane's own core-API-group role).
+# was never captured in git - recreated here from live state.
+#
+# monitoring.coreos.com (PrometheusRule) was added for the SLO Composition's
+# original hand-rolled revision, which composed a PrometheusRule directly.
+# That revision switched to wrapping Sloth (see service-catalog-design.md
+# Item 4) - the SLO Composition now composes a `sloth.slok.dev/v1
+# PrometheusServiceLevel` instead, and Sloth's OWN controller (its own
+# ServiceAccount/RBAC, installed via 10-crds-operators/sloth/) creates the
+# actual PrometheusRule, not Crossplane. Left the monitoring.coreos.com grant
+# in place regardless (harmless, and nothing else currently needs it removed)
+# and added sloth.slok.dev for the new PrometheusServiceLevel type Crossplane's
+# controller now composes directly (ConfigMap needed no such grant either way
+# - already covered by Crossplane's own core-API-group role).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -26,4 +34,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["prometheusrules", "prometheusrules/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["sloth.slok.dev"]
+    resources: ["prometheusservicelevels", "prometheusservicelevels/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

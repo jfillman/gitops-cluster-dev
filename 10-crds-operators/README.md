@@ -6,13 +6,28 @@ ingress — per `gitops-strategy.md` §3.
 ## Adopted, real, live-verified this pass
 
 - `crossplane/` — the Crossplane controller itself (Helm), `provider-kubernetes`, and
-  the Functions in use: the original four (`function-auto-ready`,
-  `function-go-templating`, `function-patch-and-transform`, `function-rollout-watcher`)
-  plus `function-go-templating-slo` (`function-slo-templates.yaml`) — a second
-  `function-go-templating` registration with its own `DeploymentRuntimeConfig`/
-  ConfigMap mount, dedicated to the `SLO` Composition
-  (`idp-service-catalog/compositions/slo/`) so its templates don't share the
-  ai-rollout `Application` Composition's own `/templates` mount.
+  the four Functions in use (`function-auto-ready`, `function-go-templating`,
+  `function-patch-and-transform`, `function-rollout-watcher`) - every Composition in
+  this catalog, including the SLO one, shares this single `function-go-templating`
+  registration via `source: Inline` (templates embedded directly in each
+  Composition). **Do not register a second `Function` object pointing at a package
+  reference already installed here** - tried that for the SLO Composition
+  (isolating its templates via a dedicated mount) and it corrupted Crossplane
+  v2.3.4's package-manager dependency-lock graph for every other Function on the
+  cluster, found live when `function-auto-ready` lost its runtime Deployment
+  entirely. `crossplane/native-resources-rbac.yaml` also lives here - Crossplane's
+  controller `ServiceAccount` needs an explicit grant per native resource kind any
+  Composition composes directly (currently `argoproj.io` Rollout/AnalysisTemplate,
+  `batch` Job, `monitoring.coreos.com` PrometheusRule, `sloth.slok.dev`
+  PrometheusServiceLevel) - it has no built-in RBAC for these, only its own API
+  types.
+- `sloth/` — Sloth (sloth.dev), installed straight from its own git repo path (not
+  published to a Helm chart repo). Watches `PrometheusServiceLevel` CRs and
+  generates the multi-window-multi-burn-rate `PrometheusRule` for each - the SLO
+  Composition generates the CR, not the rule directly. See the Application's own
+  header comments for the `sloth.extraLabels` gotcha (stamps labels onto individual
+  generated rules, not the `PrometheusRule` object itself - that's on the
+  Composition to set instead).
 - `cert-manager/` — Helm, `crds.enabled: true` only, no other customization.
 - `external-secrets/` — Helm, fully default values.
 
