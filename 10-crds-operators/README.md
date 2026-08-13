@@ -21,19 +21,16 @@ same extracted values) — adoption should be a no-op sync, not a recreation. Ve
 unchanged resource creation timestamps after the app-of-apps root goes live, same check
 used in `platform_cicd_session_argocd_onboarding`.
 
-## Documented only this pass, not yet adopted
+## Vendored + built (2026-08-13, live-verified on `kind-dev`)
 
-- **Argo Rollouts** (`quay.io/argoproj/argo-rollouts:v1.9.1`) — installed via
-  `kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml`
-  (`ai-rollout/install/02-argo-rollouts.sh`). Real gap worth naming: that URL always
-  resolves to *latest*, not a pinned version — not reproducible, not really GitOps-safe
-  as originally installed. Currently running v1.9.1; vendoring a pinned copy of that
-  exact manifest into this repo is the fast-follow, not done this pass.
-- **Contour** (`ghcr.io/projectcontour/contour:v1.32.1`) — same shape, raw-manifest
-  install, not yet vendored/adopted. This is the cluster's ingress controller — first
-  time it's been named explicitly in any `idp` design doc; `gitops-strategy.md` referred
-  to "ingress" generically without knowing which one this cluster already runs.
-
-Vendoring both is mechanical (fetch the pinned-version manifest, commit it, point an
-ArgoCD `Application` at the local path) — deferred only for scope, not because it's
-hard or risky the way `01-argocd`'s self-management deferral is.
+- **`argo-rollouts/`** — vendored `install.yaml` pinned to v1.9.1 (was previously
+  installed from a `.../releases/latest/download/...` URL - not reproducible, not
+  really GitOps-safe). `ServerSideApply=true` from the start, given the pattern's
+  now been hit three separate times on this cluster's other CRD-heavy installs.
+- **`contour/`** — vendored `install.yaml` pinned to v1.32.1, namespace
+  `projectcontour`. This is the cluster's ingress controller - first time it's been
+  named explicitly in any `idp` design doc (`gitops-strategy.md` referred to
+  "ingress" generically without knowing which one this cluster already runs); also
+  the real value `idp-application`'s `networkPolicy.ingressControllerNamespaceSelector`
+  had only as an explicitly-flagged, unconfirmed `ingress-nginx` guess - fixed there
+  once this was confirmed live.
