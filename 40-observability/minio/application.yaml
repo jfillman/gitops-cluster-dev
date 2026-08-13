@@ -33,7 +33,20 @@ spec:
             memory: 512Mi
         rootUser: admin
         rootPassword: minioadmin123
-        defaultBuckets: "thanos,loki,tempo"
+        # Real bug, caught live: the source README's `--set
+        # defaultBuckets="thanos\,loki\,tempo"` doesn't match this chart version's
+        # actual schema at all (`helm show values minio/minio --version 5.4.0` has
+        # no `defaultBuckets` key) - Helm silently ignores unknown value keys rather
+        # than erroring, so the buckets never got created and Tempo/Loki crash-
+        # looped on "bucket does not exist" until this was found and fixed. The
+        # chart's real field is `buckets:`, a list of {name, policy} objects.
+        buckets:
+          - name: thanos
+            policy: none
+          - name: loki
+            policy: none
+          - name: tempo
+            policy: none
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
