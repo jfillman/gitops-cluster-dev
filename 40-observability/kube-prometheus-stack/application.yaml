@@ -1,13 +1,9 @@
-# Deliberately minimal, kind-dev-scoped install - NOT the same values as
-# kind-observe's own kube-prometheus-stack (see /Users/jerf/tech/observability/
-# kube-prometheus-stack-values.yaml, the source of this repo's 40-observability
-# README table): that file wires Thanos sidecar/objstore, Loki, and Tempo
-# datasources, none of which exist on kind-dev - reusing it as-is would either
-# fail outright (missing thanos-objstore-config Secret) or leave dangling Grafana
-# datasources pointed at services that don't exist. kind-dev has only ever run
-# kube-prometheus-stack + HolmesGPT (idp_session_phase2_holmesgpt - Loki/Tempo/
-# Thanos/MinIO/otel-collector explicitly skipped, "not needed for this proof"),
-# so this Application matches THAT scope, not kind-observe's fuller stack.
+# Full stack, mirroring kind-observe (per direct instruction 2026-08-13, superseding
+# an earlier, deliberately-minimal version of this file that skipped Thanos/Loki/
+# Tempo) - values transcribed from /Users/jerf/tech/observability/
+# kube-prometheus-stack-values.yaml, the same source this repo's README table cites
+# for kind-observe's own install. Depends on minio/ (the thanos-objstore-config
+# Secret) being up first - Prometheus's Thanos sidecar container won't start without it.
 #
 # Release name is exactly `kube-prometheus-stack` deliberately - the chart's own
 # default ruleSelector/serviceMonitorSelector (serviceMonitorSelectorNilUsesHelmValues/
@@ -34,6 +30,30 @@ spec:
     helm:
       releaseName: kube-prometheus-stack
       valuesObject:
+        prometheus:
+          prometheusSpec:
+            retention: 6h # short - Thanos owns long-term retention via MinIO
+            walCompression: true
+            thanos:
+              # Turns on the Thanos sidecar container in every Prometheus pod.
+              objectStorageConfig:
+                existingSecret:
+                  name: thanos-objstore-config
+                  key: objstore.yml
+            # Let Prometheus discover the OTel Collector's metrics endpoint.
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            # Tempo's metrics-generator remote-writes span/service-graph metrics in -
+            # Prometheus doesn't accept remote-write by default.
+            enableFeatures:
+              - remote-write-receiver
+          # Exposes the sidecar's gRPC port so Thanos Query can find it.
+          thanosService:
+            enabled: true
+          thanosServiceMonitor:
+            enabled: true
+        alertmanager:
+          enabled: true
         grafana:
           enabled: true
           adminPassword: prom-operator # change this for anything beyond local learning
@@ -42,12 +62,57 @@ spec:
               enabled: true
               # label/labelValue left at chart defaults (grafana_dashboard: "1") -
               # matches idp-service-catalog's SLO Composition dashboard ConfigMap
-              # exactly (compositions/slo/templates/dashboard-configmap.yaml).
-        prometheus:
-          prometheusSpec:
-            retention: 6h
-            serviceMonitorSelectorNilUsesHelmValues: false
-            podMonitorSelectorNilUsesHelmValues: false
+              # exactly (compositions/slo/templates/dashboard-configmap.yaml). NOT
+              # part of the original kind-observe source values file - added for
+              # idp's SLO work, kept here alongside the rest of the transcription.
+          # Provisions Loki + Tempo as datasources alongside the stack's own
+          # Prometheus datasource, and wires the trace<->log<->metric links.
+          additionalDataSources:
+            - name: Loki
+              type: loki
+              access: proxy
+              url: http://loki-gateway.observability.svc.cluster.local
+              uid: loki
+              jsonData:
+                derivedFields:
+                  - datasourceUid: tempo
+                    matcherRegex: 'trace_id=(\w+)'
+                    name: TraceID
+                    url: '$${__value.raw}'
+            - name: Tempo
+              type: tempo
+              access: proxy
+              url: http://tempo.observability.svc.cluster.local:3200
+              uid: tempo
+              jsonData:
+                tracesToLogsV2:
+                  datasourceUid: 'loki'
+                  spanStartTimeShift: '-5m'
+                  spanEndTimeShift: '5m'
+                  filterByTraceID: true
+                  filterBySpanID: false
+                tracesToMetrics:
+                  datasourceUid: 'thanos-query'
+                  spanStartTimeShift: '-5m'
+                  spanEndTimeShift: '5m'
+                  queries:
+                    - name: 'Span latency (p99)'
+                      query: 'histogram_quantile(0.99, sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m])) by (le))'
+                serviceMap:
+                  datasourceUid: 'thanos-query'
+                nodeGraph:
+                  enabled: true
+            - name: Thanos-Query
+              type: prometheus
+              access: proxy
+              url: http://thanos-query.observability.svc.cluster.local:9090
+              uid: thanos-query
+              isDefault: false
+              jsonData:
+                exemplarTraceIdDestinations:
+                  - datasourceUid: tempo
+                    name: trace_id
+                httpMethod: POST
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
@@ -57,7 +122,5 @@ spec:
       # Same annotation-size limit hit on ArgoCD's and external-secrets' own CRDs
       # (see 01-argocd/README.md) - kube-prometheus-stack's CRDs (Prometheus,
       # Alertmanager, PrometheusRule, ServiceMonitor, ThanosRuler, Probe, ...) are
-      # large enough to hit it too. Added proactively, not reactively - confirmed
-      # necessary live once synced (see this repo's own commit history for the
-      # concrete error if this comment predates that confirmation).
+      # large enough to hit it too. Confirmed necessary live.
       - ServerSideApply=true

@@ -4,19 +4,38 @@ Prometheus/Grafana/Tempo/Loki stack — per `gitops-strategy.md` §3.
 
 ## Real, built, live-verified on `kind-dev` (2026-08-13)
 
-`kube-prometheus-stack/application.yaml` - **deliberately NOT the same as the
-kind-observe values documented below.** `kind-dev` has only ever run a minimal
-kube-prometheus-stack + HolmesGPT (Loki/Tempo/Thanos/MinIO/otel-collector explicitly
-skipped since `idp_session_phase2_holmesgpt` - "not needed for this proof"), and this
-Application matches that scope: plain Prometheus + Grafana + Alertmanager, no Thanos
-sidecar/objstore, no Loki/Tempo datasources. Release name is exactly
-`kube-prometheus-stack` so the chart's own default `release:`-label
-ServiceMonitor/PrometheusRule selectors line up with what
+Full stack, mirroring `kind-observe`'s own (per direct instruction, superseding an
+earlier, deliberately-minimal first pass of `kube-prometheus-stack/application.yaml`
+that skipped Thanos/Loki/Tempo/MinIO/OTel Collector entirely) - `minio/`,
+`kube-prometheus-stack/`, `thanos/`, `loki/`, `tempo/`, `otel-collector/`, each a
+real Application, values transcribed from `/Users/jerf/tech/observability/*-values.yaml`
+(the actual source design `kind-observe`'s stack was built from - see that
+directory's own `README.md` for the full architecture diagram and rationale).
+
+**Sync order matters** (`SYNCPOLICY: Manual` throughout, same as `10-crds-operators/` -
+no automated dependency ordering, sync by hand in this order): `minio` (bucket +
+`thanos-objstore-config` Secret) → `kube-prometheus-stack` (Thanos sidecar needs the
+Secret) → `thanos` (Query needs `kube-prometheus-stack-thanos-discovery`) → `loki` +
+`tempo` (need their MinIO buckets) → `otel-collector` (needs Tempo/Loki's endpoints
+up to have anywhere to export to, though it'll come up regardless - only the
+pipeline's actual delivery depends on this order, not the collector's own health).
+
+**One real chart-provenance catch, worth recording**: the source README documented
+*two* alternative ways to install MinIO (`bitnami/minio` or the community
+`minio/minio` from `charts.min.io`) without saying which was actually used.
+`kind-observe`'s real live version (`5.4.0`, this file's own table below) only
+resolves against the community chart's version numbering - `bitnami/minio`'s
+current version range (15.x) doesn't overlap with `5.4.0` at all, confirmed via
+`helm search repo` before picking - so `minio/application.yaml` uses
+`charts.min.io`, not bitnami.
+
+Release name is exactly `kube-prometheus-stack` deliberately - the chart's own
+default `release:`-label ServiceMonitor/PrometheusRule selectors line up with what
 idp-service-catalog's SLO Composition and `idp-application`'s own
-`serviceMonitor.additionalLabels` already assumed - confirmed against a real install
-now, not left as an unconfirmed placeholder. Reused the same
-`ServerSideApply=true` fix `01-argocd/`/`external-secrets/` needed (kube-prometheus-
-stack's CRDs are large enough to hit the same annotation-size limit).
+`serviceMonitor.additionalLabels` already assumed - confirmed against a real
+install now, not left as an unconfirmed placeholder. `ServerSideApply=true` on
+`kube-prometheus-stack` (same annotation-size-limit fix `01-argocd/`/
+`external-secrets/` needed - its CRDs are large enough to hit it too).
 
 **HolmesGPT is not built here yet** - its real values (narrower toolset, dropped
 Grafana/Loki+Tempo, `github` MCP addon - see `idp_session_phase2_holmesgpt`) were

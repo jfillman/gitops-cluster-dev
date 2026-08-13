@@ -1,8 +1,10 @@
 # The one resource applied manually, once, per gitops-strategy.md §4's bootstrap
 # sequence - everything after this is a normal PR to this repo. Recursively finds every
-# Application manifest under this repo (currently only 10-crds-operators/*/ has real
-# ones; the other groups are README-only placeholders and contribute nothing until they
-# have real Application manifests of their own).
+# Application manifest under this repo. `**/secret-application.yaml` added 2026-08-13
+# alongside `40-observability/minio/` - same "Helm chart + directory-sourced plain
+# manifest" split `**/packages-application.yaml` already established for
+# 10-crds-operators/crossplane/, just named for what it actually carries (a Secret,
+# not packages) rather than overloading that name for something it doesn't describe.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -19,7 +21,7 @@ spec:
     path: .
     directory:
       recurse: true
-      include: "{**/application.yaml,**/packages-application.yaml}"
+      include: "{**/application.yaml,**/packages-application.yaml,**/secret-application.yaml}"
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
