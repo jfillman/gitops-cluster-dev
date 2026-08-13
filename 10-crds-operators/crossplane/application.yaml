@@ -25,3 +25,21 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+  # The chart generates its own webhook TLS materials (self-signed CA/client/server
+  # certs) via Helm template functions at render time - every `helm template` produces
+  # NEW random cert bytes, so these three will always diff against whatever's live.
+  # Ignoring, not syncing - a real sync here would regenerate and could break the
+  # webhook's live cert chain. Found live during Phase 1 adoption, not assumed upfront.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: crossplane-root-ca
+      jsonPointers: ["/data"]
+    - group: ""
+      kind: Secret
+      name: crossplane-tls-client
+      jsonPointers: ["/data"]
+    - group: ""
+      kind: Secret
+      name: crossplane-tls-server
+      jsonPointers: ["/data"]
