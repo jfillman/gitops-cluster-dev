@@ -16,7 +16,7 @@ enforces.
 00-bootstrap/        namespaces (documented, mostly pre-existing), RBAC/NetworkPolicy baseline (not yet built)
 01-argocd/            ArgoCD's own install — documented, not yet self-managed (deferred, see status)
 10-crds-operators/    Crossplane + providers/functions, cert-manager, external-secrets, Argo Rollouts, ingress
-20-service-catalog/   idp-service-catalog XRDs/Compositions (Phase 2 — not built yet)
+20-service-catalog/   idp-service-catalog XRDs/Compositions, git-tag pinned — real, wired 2026-08-13
 30-policy/            cluster-wide guardrails (not built yet)
 40-observability/     Prometheus/Grafana/Tempo/Loki/Thanos/MinIO/otel-collector/HolmesGPT (documented, not yet re-templated)
 50-platform-cicd/     platform-cicd's own control plane + Tekton/PaC/sigstore stack (documented, not yet re-templated)
@@ -32,6 +32,8 @@ listed here is already under GitOps management — check each group's README.
 
 **Real, adopted, live-verified this pass**: `10-crds-operators/`'s Helm-based pieces
 (Crossplane + its providers/functions, cert-manager, external-secrets).
+`20-service-catalog/` (`idp-service-catalog`'s XRDs/Compositions, git-tag pinned) is
+real and wired as of 2026-08-13 — see that directory's own README.
 
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
 `01-argocd` (ArgoCD managing its own install has real bootstrap-ordering risk, doing
