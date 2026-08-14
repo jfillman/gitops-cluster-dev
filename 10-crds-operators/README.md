@@ -49,3 +49,14 @@ used in `platform_cicd_session_argocd_onboarding`.
   the real value `idp-application`'s `networkPolicy.ingressControllerNamespaceSelector`
   had only as an explicitly-flagged, unconfirmed `ingress-nginx` guess - fixed there
   once this was confirmed live.
+- **`crossplane/providers.yaml`'s new `provider-github` entry + `provider-github-config.yaml`**
+  (2026-08-13) — backs `NodeJSApplication` (`idp-service-catalog`, the first Bootstrap-tier XRD,
+  `idp/docs/service-catalog-design.md` §1). Real package name confirmed live against
+  the provider's own source, not guessed: `crossplane-contrib/provider-upjet-github`.
+  Two real corrections found live-verifying `NodeJSApplication`, both detailed in
+  `provider-github-config.yaml`'s own header and `service-catalog-design.md` §1: the
+  namespaced managed-resource family (`repo.github.m.upbound.io`), not the Cluster-scoped
+  one (Crossplane v2 rejects a namespaced XR composing a Cluster-scoped resource
+  outright), and a PAT, not `platform-cicd`'s existing GitHub App (GitHub Apps can't
+  create repos under `jfillman`'s personal account at all - the Secret itself is never
+  committed here).

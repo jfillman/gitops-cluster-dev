@@ -1,6 +1,7 @@
 # Crossplane Provider packages. Rendered as plain manifests (not a Helm chart) via
-# the same crossplane Application's directory — see application.yaml. Pinned to the
-# exact package references already installed (`kubectl get providers.pkg.crossplane.io`).
+# the crossplane-packages Application's directory source — see
+# packages-application.yaml. Pinned to the exact package references already installed
+# (`kubectl get providers.pkg.crossplane.io`).
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -10,3 +11,24 @@ metadata:
     platform.io/subcomponent: crds-operators
 spec:
   package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.2.1
+---
+# Backs NodeJSApplication (idp-service-catalog, the first Bootstrap-tier XRD —
+# idp/docs/service-catalog-design.md §1) — every "create/commit to a repo" step in that
+# XRD's Composition is a repo.github.upbound.io managed resource from this provider.
+# Confirmed live against the provider's own source (github.com/crossplane-contrib/
+# provider-upjet-github) rather than guessed: the actual xpkg package name is
+# provider-upjet-github, not provider-github (the design doc's shorthand) — the
+# examples/namespaced/ tree in that repo is unfinished upjet-template scaffolding
+# (literally apiVersion: template.m.crossplane.io/v1beta1, never filled in), so this
+# provider's real, working resources are the Cluster-scoped ones under examples/cluster/
+# — that's what provider-github-config.yaml (this same directory) and
+# idp-service-catalog's Composition target.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-github
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-upjet-github:v0.19.1
