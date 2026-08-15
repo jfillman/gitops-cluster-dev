@@ -1,0 +1,55 @@
+# Scopes the xr-requests ApplicationSet's generated Applications (see
+# applicationset.yaml in this same directory). Deliberately a SEPARATE, narrowly-scoped
+# AppProject from the per-app one (../tenant-appprojects/chart/templates/appproject.yaml)
+# - that project can't be reused here because it's itself generated from tenants/<app>/
+# app.yaml, which doesn't exist yet for a brand-new app (app.yaml is WRITTEN by
+# NodeJSApplication's own Composition - gating on it here would be circular, same reason
+# applicationset.yaml's generator uses `directories`, not `files`).
+#
+# Also deliberately NOT `project: default`, unlike ../tenant-appprojects/
+# applicationset.yaml's own onboarding-Application. That one reads from
+# gitops-cluster-dev (this repo, cluster-admin-owned, rare/high-stakes) where `default`'s
+# wide-open scope is safe because the source itself is already high-trust. This
+# ApplicationSet instead reads from gitops-cluster-dev-tenants - explicitly the
+# lower-trust, PR-reviewed-but-lighter-bar repo (see that repo's own README) - so
+# `default`'s wildcard sourceRepos/clusterResourceWhitelist would let anyone who can
+# commit an xr-requests/ file sync arbitrary cluster resources. Same problem
+# platform-cicd already solved for its own onboarding flow with a dedicated
+# `platform-onboarding` AppProject
+# (platform-cicd/charts/platform-cicd-control-plane/templates/argocd/
+# onboarding-appproject.yaml) - same shape, reused here.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: idp-onboarding
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: xr-requests
+spec:
+  description: >-
+    Bootstrap-tier XR onboarding (idp/docs/service-catalog-design.md §0) - renders
+    whatever's committed into gitops-cluster-dev-tenants/tenants/<app>/xr-requests/ into
+    that app's app-<appName>-cicd namespace. Narrower than `default` by design - see
+    this file's own header comment.
+  sourceRepos:
+    - https://github.com/jfillman/gitops-cluster-dev-tenants.git
+  destinations:
+    - namespace: "app-*-cicd"
+      server: https://kubernetes.default.svc
+  # Same gap ../tenant-appprojects/chart/templates/appproject.yaml already documents
+  # hitting live: an AppProject with no clusterResourceWhitelist implicitly denies every
+  # cluster-scoped resource, including the Namespace CreateNamespace=true needs.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  # Explicit kinds, not a wildcard on the catalog.idp.io group - Attached-tier XRDs
+  # (SLO, future Redis/OAuthServer) are also in this group but are deliberately NOT
+  # meant to go through xr-requests/ (they're values.yaml fields in the app's own
+  # gitops repo, rendered by the idp-application chart). Add SpringBootApplication here
+  # when it's built, not before.
+  namespaceResourceWhitelist:
+    - group: catalog.idp.io
+      kind: NodeJSApplication
+    - group: catalog.idp.io
+      kind: ApplicationEnvironment
