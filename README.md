@@ -57,19 +57,24 @@ prior pass happened to use public ones. Fixed by registering a `repo-creds` Secr
 `provider-github`'s own already-cluster-resident PAT, rather than minting a second
 overlapping credential.
 
-**Still open, hit again for real this pass**: deleting an `AppProject` before its
-dependent per-app `Application`'s own `resources-finalizer.argocd.argoproj.io` finishes
-permanently stuck that `Application` — its finalizer needs to look up the very
+**Fixed and live-verified 2026-08-15** (was: still open, hit twice — 2026-08-13 against
+a fabricated throwaway tenant, confirmed again 2026-08-15 against a real
+`NodeJSApplication`/`ApplicationEnvironment`-driven teardown): deleting an `AppProject`
+before its dependent per-app `Application`'s own `resources-finalizer.argocd.argoproj.io`
+finishes permanently stuck that `Application` — its finalizer needs to look up the very
 `AppProject` that's already gone (`"error getting app project ... not found"`, retried
 forever). Hit because `tenant-appprojects` and `tenant-onboarding` prune independently,
-on their own separate git-generator cycles, with no ordering between them — first found
-2026-08-13 against a fabricated throwaway tenant, confirmed again 2026-08-15 against a
-real `NodeJSApplication`/`ApplicationEnvironment`-driven teardown, so it's not an
-artifact of the earlier fixture. Worked around both times by clearing the stuck
-`Application`'s finalizer by hand — still not a designed fix (a real one likely needs a
-`sync-wave`-equivalent ordering constraint on generator-driven pruning, which
-ApplicationSet doesn't obviously expose; worth fixing before a real tenant's
-`Application` gets stuck the same way on deprovisioning).
+on their own separate git-generator cycles, with no ordering between them. Both times
+worked around by clearing the stuck `Application`'s finalizer by hand — the real fix
+didn't end up needing a `sync-wave`-equivalent ordering constraint on ArgoCD's
+generator-driven pruning (which `ApplicationSet` doesn't obviously expose) at all: it's
+a `protection.crossplane.io` `Usage`, composed by `idp-service-catalog`'s
+`ApplicationEnvironment` Composition, blocking `NodeJSApplication` deletion at the
+Crossplane layer (a real, already-installed admission webhook) while any referencing
+env still exists — enforced before `tenants/<app>/app.yaml` (and therefore the
+`AppProject` built from it) can ever be removed while an env's `Application` still
+depends on it. See `idp-service-catalog` `v0.3.2` and `idp/docs/
+service-catalog-design.md` §0 for the full mechanism and live-verification detail.
 
 **New this pass (2026-08-15, same session): a cluster registry, and a real second
 cluster.** `00-bootstrap/cluster-registry/` — one labeled `ConfigMap` per cluster
@@ -106,8 +111,9 @@ Also worth noting: the `AppProject`-deletion-ordering bug above did **not** recu
 during this pass's teardown, on either cluster — because the orphaned `app.yaml`
 correctly kept each `AppProject` alive until a deliberate, separate manual delete,
 the two `ApplicationSet`s never got the chance to race. Not a fix for the underlying
-bug (still open, see above), but a real data point that the orphan design avoids
-triggering it in the one case this session exercised.
+bug on its own (see above for the real fix, also landed 2026-08-15), but a real data
+point that the orphan design avoids triggering it in the one case this session
+exercised even before the `Usage`-based fix existed.
 
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
 `01-argocd` (ArgoCD managing its own install has real bootstrap-ordering risk, doing
