@@ -50,7 +50,20 @@ spec:
       source:
         repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
         targetRevision: main
-        path: "tenants/{{.path.basename}}/xr-requests"
+        # Source path is the APP directory (tenants/<app>), not the xr-requests/
+        # subfolder directly - found live: git doesn't track empty directories, so a
+        # directory-type source pointed straight at xr-requests/ starts erroring
+        # manifest generation entirely ("app path does not exist") the moment the
+        # LAST file in it is removed - exactly the moment a real deletion needs it to
+        # cleanly diff down to zero resources instead. tenants/<app> itself is
+        # guaranteed to exist (the directories generator above just matched it), so
+        # scoping down to just xr-requests/*.yaml via recurse+include instead keeps
+        # the source path always valid while still only ever applying XR manifests -
+        # app.yaml and <env>/identity.yaml, both siblings of xr-requests/ under the
+        # same tenants/<app>/ root, are excluded by the include pattern.
+        directory:
+          recurse: true
+          include: "xr-requests/*.yaml"
       destination:
         server: https://kubernetes.default.svc
         namespace: "app-{{.path.basename}}-cicd"
