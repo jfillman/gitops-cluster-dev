@@ -27,11 +27,10 @@ metadata:
     platform.io/component: cluster-config
     platform.io/subcomponent: xr-requests
 spec:
-  description: >-
-    Bootstrap-tier XR onboarding (idp/docs/service-catalog-design.md §0) - renders
-    whatever's committed into gitops-cluster-dev-tenants/tenants/<app>/xr-requests/ into
-    that app's app-<appName>-cicd namespace. Narrower than `default` by design - see
-    this file's own header comment.
+  # Kept under AppProject's 255-byte description limit (hit live, first pass was too
+  # long) - full rationale lives in this file's own header comment instead.
+  description: "Bootstrap-tier XR onboarding (service-catalog-design.md §0): renders
+    gitops-cluster-dev-tenants/tenants/<app>/xr-requests/ into app-<appName>-cicd."
   sourceRepos:
     - https://github.com/jfillman/gitops-cluster-dev-tenants.git
   destinations:
