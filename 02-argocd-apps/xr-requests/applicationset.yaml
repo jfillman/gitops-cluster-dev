@@ -74,21 +74,24 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-          # KNOWN UNRESOLVED BUG, confirmed live twice (idp/docs/service-catalog-design.md
-          # §0's own status note has the full writeup): deleting an ApplicationEnvironment
-          # xr-request through this Application deadlocks against the Usage it composes.
-          # The Usage's own controller (protection.crossplane.io) refuses to release its
-          # finalizer until the ApplicationEnvironment ("using" resource, spec.by) is
-          # actually gone; the ApplicationEnvironment picks up a k8s foregroundDeletion
-          # finalizer and won't finish going away until that same Usage (an owned,
-          # blockOwnerDeletion:true dependent) is gone first. PrunePropagationPolicy=
-          # background was tried as the fix (theory: ArgoCD's prune defaults to foreground
-          # propagation) and kept here since it's not harmful, but it did NOT resolve the
-          # deadlock when live-tested a second time - the foregroundDeletion finalizer
-          # still gets added regardless, so the root cause is not actually in ArgoCD's own
-          # propagation choice. Root cause not yet isolated. Recovery today requires
-          # manually clearing the Usage object's own finalizer
-          # (kubectl patch usage <name> -n <ns> --type=merge -p '{"metadata":
-          # {"finalizers":[]}}') - do not treat env deletion through this path as routine
-          # until this is fixed.
+          # SUSPECTED RESOLVED, not proven (downgraded 2026-08-15 - full writeup in
+          # idp/docs/service-catalog-design.md's own status note): deleting an
+          # ApplicationEnvironment xr-request through this Application was confirmed
+          # twice, live, to deadlock against the Usage it composes - the Usage's own
+          # controller (protection.crossplane.io) refused to release its finalizer until
+          # the ApplicationEnvironment ("using" resource, spec.by) was actually gone,
+          # while the ApplicationEnvironment itself wouldn't finish going away until that
+          # same Usage (an owned, blockOwnerDeletion:true dependent) was gone first -
+          # circular. PrunePropagationPolicy=background (kept below) was tried as a fix
+          # and did NOT resolve it on a same-day retest. A later same-day pass
+          # reproduced the same deletion path 3 times, including one attempt matching
+          # the original failure's timing/cluster almost exactly - all 3 tore down
+          # cleanly, no code change made to the Usage/finalizer mechanism in between.
+          # Best lead: a real, separate ArgoCD Redis-cache staleness bug
+          # (../../01-argocd/README.md) was found and fixed immediately before the clean
+          # runs, and the original failures happened during heavy same-day onboard/
+          # teardown churn - plausible, not proven. If this ever recurs: kubectl patch
+          # usage <name> -n <ns> --type=merge -p '{"metadata":{"finalizers":[]}}'. Treat
+          # env deletion through this path as usable but monitored, not yet fully
+          # routine.
           - PrunePropagationPolicy=background

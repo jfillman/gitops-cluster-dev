@@ -120,23 +120,29 @@ from the tenants repo. Live-verified twice end-to-end with a throwaway app
 `AppProject` boundary attack-test (a committed `Secret` rejected with `resource
 :Secret is not permitted in project idp-onboarding`).
 
-Two real bugs found live, one fixed:
+Two real bugs found live:
 - **Fixed**: a directory-type `Application` source pointed straight at `xr-requests/`
   errors manifest generation entirely (`app path does not exist`) once its last file is
   removed — git doesn't track empty directories, and that's exactly the moment a real
   deletion needs a clean diff to zero. Fixed by sourcing from the always-present
   `tenants/<app>` directory with `recurse: true` + `include: "xr-requests/*.yaml"`
   instead of pointing straight at the subfolder.
-- **Still open, confirmed twice**: deleting an `ApplicationEnvironment` through this
-  path deadlocks — the `Usage` it composes won't release its own finalizer until the
-  `ApplicationEnvironment` is actually gone, but the `ApplicationEnvironment` (via k8s's
-  `foregroundDeletion` finalizer) won't finish going away until that same `Usage` (an
-  owned, `blockOwnerDeletion: true` dependent) is gone first. `PrunePropagationPolicy=
-  background` was tried and did **not** fix it. Every prior `Usage`-fix
-  live-verification used a plain `kubectl delete` instead of ArgoCD prune, so this
-  never surfaced before. Recovery requires manually clearing the `Usage`'s own
-  finalizer — see `02-argocd-apps/xr-requests/applicationset.yaml`'s own header for the
-  exact command. Do not treat env deletion through `xr-requests/` as routine yet.
+- **Suspected resolved, not proven (2026-08-15)**: deleting an `ApplicationEnvironment`
+  through this path was confirmed twice, live, to deadlock — the `Usage` it composes
+  wouldn't release its own finalizer until the `ApplicationEnvironment` was actually
+  gone, while the `ApplicationEnvironment` itself wouldn't finish going away until that
+  same `Usage` (an owned, `blockOwnerDeletion: true` dependent) was gone first.
+  `PrunePropagationPolicy=background` was tried and did **not** fix it on a same-day
+  retest. A later same-day pass reproduced the same deletion path 3 times, including
+  one matching the original failure's timing/cluster almost exactly — all 3 tore down
+  cleanly, no code change made to the `Usage`/finalizer mechanism in between. Best
+  lead: a real, separate ArgoCD Redis-cache staleness bug (`01-argocd/README.md`) was
+  found and fixed immediately before the clean runs, and the original failures happened
+  during heavy same-day onboard/teardown churn — plausible, not proven. Recovery, if
+  this ever recurs, requires manually clearing the `Usage`'s own finalizer — see
+  `02-argocd-apps/xr-requests/applicationset.yaml`'s own header for the exact command.
+  Treat env deletion through `xr-requests/` as usable but monitored, not yet fully
+  routine.
 
 Also worth noting: the `AppProject`-deletion-ordering bug above did **not** recur
 during this pass's teardown, on either cluster — because the orphaned `app.yaml`

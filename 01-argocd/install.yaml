@@ -31275,6 +31275,21 @@ metadata:
     app.kubernetes.io/name: argocd-cmd-params-cm
     app.kubernetes.io/part-of: argocd
   name: argocd-cmd-params-cm
+# reposerver.repo.cache.expiration: found live chasing the xr-requests/ deadlock
+# investigation (idp/docs/service-catalog-design.md §0) - this is the repo-server's
+# Redis-backed cache for directory/app listings (ApplicationSet git generators go
+# through this, not just Application-level manifest generation), stock default 24h.
+# A brand-new tenants/<app>/ directory sat at "generated 0 applications" for 15+
+# minutes across multiple argocd-repo-server pod restarts - restarting the pod only
+# clears its local in-memory git clone, not this Redis-backed layer, which survives
+# pod restarts. Only an argocd-redis restart (or waiting out the full 24h) busted it.
+# Matched to revision-cache-expiration's own 3m default (a separate, already-short
+# cache for branch-name-to-SHA resolution) rather than inventing a new interval, and
+# short enough that it can't outlast the git generators' own ~180s reconcile cycle -
+# every generator reconcile now genuinely re-fetches instead of serving a stale
+# same-cache-key response for up to a day.
+data:
+  reposerver.repo.cache.expiration: 3m
 ---
 apiVersion: v1
 kind: ConfigMap

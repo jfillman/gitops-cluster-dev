@@ -41,3 +41,26 @@ two-ArgoCD-instance split (Phase 4 of the `idp` build) — doing both together, 
 once the rest of this repo's structure is proven out, rather than rushing self-management
 in now. Version stays pinned as a real vendored manifest (`install.yaml`) in the
 meantime, not just a version number in prose.
+
+## `reposerver.repo.cache.expiration` — found live, 2026-08-15
+
+Found chasing an `xr-requests/` deletion investigation
+(`idp/docs/service-catalog-design.md` §0): a brand-new `tenants/<app>/` directory sat
+at "generated 0 applications" for 15+ minutes, surviving multiple `argocd-repo-server`
+pod restarts. Root cause: the `directories`/`files` generators' listing responses are
+cached in Redis (`--repo-cache-expiration`, stock default 24h) — a separate, longer-
+lived layer than `--revision-cache-expiration` (3m default, just branch-name-to-SHA
+resolution). Restarting `argocd-repo-server` only clears its local in-memory git
+clone, not this Redis-backed layer, which survives pod restarts; only an
+`argocd-redis` restart (or waiting out the full 24h) busted it.
+
+Fixed by setting `reposerver.repo.cache.expiration: 3m` in `argocd-cmd-params-cm` —
+matched to `revision-cache-expiration`'s own already-short default rather than
+inventing a new interval, and short enough that it can't outlast the git generators'
+own ~180s reconcile cycle, so every reconcile now genuinely re-fetches instead of
+serving a stale same-cache-key response for up to a day. Live-verified: a throwaway
+onboarding commit surfaced as a real `Application` in ~3 minutes with zero manual
+cache-busting, versus 15+ minutes (uncertain upper bound) before. Applied both live
+(`kubectl patch cm argocd-cmd-params-cm -n argocd --type merge -p
+'{"data":{"reposerver.repo.cache.expiration":"3m"}}'` + a `repo-server` restart to
+pick it up) and in `install.yaml` itself, so a from-scratch bootstrap reproduces it.
