@@ -1,7 +1,11 @@
-# crossplaneReady starts "false" - flipped to "true" in a separate, deliberate commit
-# only once the scoped Crossplane + SLO install (gitops-cluster-kind-prod) is actually
-# live-verified healthy. Manual attestation, not an automated probe - see this file's
-# sibling application.yaml header for why.
+# crossplaneReady flipped to "true" 2026-08-15: the scoped install
+# (gitops-cluster-kind-prod - Crossplane core + provider-kubernetes +
+# function-go-templating/function-auto-ready + the SLO XRD/Composition) is live and
+# healthy, confirmed via kubectl against kind-prod directly (crossplane/crossplane-
+# packages/idp-service-catalog Applications all Synced+Healthy, provider-kubernetes
+# and both functions Healthy: "True", slos.catalog.idp.io XRD Established). Manual
+# attestation, not an automated probe - see this file's sibling application.yaml
+# header for why.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,4 +15,4 @@ metadata:
     platform.io/cluster-registry: "true"
 data:
   type: upper
-  crossplaneReady: "false"
+  crossplaneReady: "true"
