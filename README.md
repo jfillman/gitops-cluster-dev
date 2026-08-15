@@ -5,7 +5,7 @@ Declarative config for the `kind-dev` cluster (kept deliberately separate from
 `idp/README.md`'s naming note) — the cluster-admin-owned half of the topology in
 `idp/docs/gitops-strategy.md` §1/§3. Static, mostly-slow-changing config only; per-app
 onboarding lives in the sibling `gitops-cluster-dev-tenants` repo, read by
-`02-argocd-apps/`'s two `ApplicationSet`s.
+`02-argocd-apps/`'s three `ApplicationSet`s.
 
 ## Layout
 
@@ -17,7 +17,7 @@ enforces.
 ```
 00-bootstrap/        namespaces (documented, mostly pre-existing), RBAC/NetworkPolicy baseline (not yet built)
 01-argocd/            ArgoCD's own install — documented, not yet self-managed (deferred, see status)
-02-argocd-apps/       tenant-onboarding ApplicationSets (per-app AppProject + real app deployment) — real, wired 2026-08-13
+02-argocd-apps/       tenant-onboarding ApplicationSets (per-app AppProject + real app deployment + xr-requests/ XR onboarding) — real, wired 2026-08-13/15
 10-crds-operators/    Crossplane + providers/functions, cert-manager, external-secrets, Argo Rollouts, ingress
 20-service-catalog/   idp-service-catalog XRDs/Compositions, git-tag pinned — real, wired 2026-08-13
 30-policy/            cluster-wide guardrails (not built yet)
@@ -106,6 +106,37 @@ schema`) plus `kubectl explain`. Fixed with `managementPolicies` excluding
 installed. Worth remembering for any future provider/field assumption: check
 `kubectl explain` against the real installed CRD version before trusting an older
 field name still applies.
+
+**New this pass (2026-08-15, same day): `02-argocd-apps/xr-requests/` — real GitOps
+onboarding for Bootstrap-tier XRs, built and live-verified.** `idp/docs/
+service-catalog-design.md` §0's `xr-requests/` mechanism: a git commit into
+`gitops-cluster-dev-tenants/tenants/<app>/xr-requests/` now creates
+`NodeJSApplication`/`ApplicationEnvironment` XRs for real, replacing every prior
+`kubectl apply`-based live-verification pass. A dedicated `idp-onboarding`
+`AppProject` (not `default`, not the per-app one — both are circular for a brand-new
+app whose `app.yaml` doesn't exist yet) scopes it to just those two kinds, sourced only
+from the tenants repo. Live-verified twice end-to-end with a throwaway app
+(`xr-onboarding-verify`) across both `kind-dev` and `kind-prod`, including a real
+`AppProject` boundary attack-test (a committed `Secret` rejected with `resource
+:Secret is not permitted in project idp-onboarding`).
+
+Two real bugs found live, one fixed:
+- **Fixed**: a directory-type `Application` source pointed straight at `xr-requests/`
+  errors manifest generation entirely (`app path does not exist`) once its last file is
+  removed — git doesn't track empty directories, and that's exactly the moment a real
+  deletion needs a clean diff to zero. Fixed by sourcing from the always-present
+  `tenants/<app>` directory with `recurse: true` + `include: "xr-requests/*.yaml"`
+  instead of pointing straight at the subfolder.
+- **Still open, confirmed twice**: deleting an `ApplicationEnvironment` through this
+  path deadlocks — the `Usage` it composes won't release its own finalizer until the
+  `ApplicationEnvironment` is actually gone, but the `ApplicationEnvironment` (via k8s's
+  `foregroundDeletion` finalizer) won't finish going away until that same `Usage` (an
+  owned, `blockOwnerDeletion: true` dependent) is gone first. `PrunePropagationPolicy=
+  background` was tried and did **not** fix it. Every prior `Usage`-fix
+  live-verification used a plain `kubectl delete` instead of ArgoCD prune, so this
+  never surfaced before. Recovery requires manually clearing the `Usage`'s own
+  finalizer — see `02-argocd-apps/xr-requests/applicationset.yaml`'s own header for the
+  exact command. Do not treat env deletion through `xr-requests/` as routine yet.
 
 Also worth noting: the `AppProject`-deletion-ordering bug above did **not** recur
 during this pass's teardown, on either cluster — because the orphaned `app.yaml`
