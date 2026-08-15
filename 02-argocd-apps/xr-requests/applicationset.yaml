@@ -74,3 +74,16 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          # Found live tearing down a real env: ArgoCD's prune defaults to FOREGROUND
+          # propagation, which deadlocks against a Usage-protected ApplicationEnvironment
+          # deletion. The Usage's own controller (protection.crossplane.io) waits for the
+          # "using" resource (spec.by = the ApplicationEnvironment itself) to be actually
+          # gone before releasing its own finalizer ("WaitingUsingDeleted") - but k8s
+          # foreground GC won't finish removing the ApplicationEnvironment until that same
+          # Usage (an owned, blockOwnerDeletion:true dependent) is gone first. Circular.
+          # Plain `kubectl delete` (background propagation by default) never hit this in
+          # earlier live-verification passes - this is the first deletion path that
+          # actually goes through ArgoCD prune. Background propagation avoids the cycle:
+          # the parent is removed without waiting on its owned dependents first, so the
+          # Usage controller's own "is the parent really gone" check can succeed normally.
+          - PrunePropagationPolicy=background
