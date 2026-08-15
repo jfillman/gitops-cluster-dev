@@ -61,6 +61,7 @@ spec:
         # the source path always valid while still only ever applying XR manifests -
         # app.yaml and <env>/identity.yaml, both siblings of xr-requests/ under the
         # same tenants/<app>/ root, are excluded by the include pattern.
+        path: "tenants/{{.path.basename}}"
         directory:
           recurse: true
           include: "xr-requests/*.yaml"
