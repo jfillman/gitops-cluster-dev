@@ -71,6 +71,44 @@ artifact of the earlier fixture. Worked around both times by clearing the stuck
 ApplicationSet doesn't obviously expose; worth fixing before a real tenant's
 `Application` gets stuck the same way on deprovisioning).
 
+**New this pass (2026-08-15, same session): a cluster registry, and a real second
+cluster.** `00-bootstrap/cluster-registry/` — one labeled `ConfigMap` per cluster
+(`type: dev|upper`, `cicdReady`/`crossplaneReady` flags), cluster-admin-authored,
+manual attestation not an automated probe. This is what
+`ApplicationEnvironment.spec.cluster` (now a real required field, no longer a
+hardcoded `"kind-dev"` Composition constant) gates against via a real Crossplane
+extra-resources lookup — the first actual use of that mechanism in this catalog.
+`kind-prod` is now registered and `crossplaneReady: "true"` for real: a scoped
+Crossplane install (`gitops-cluster-kind-prod` — core + `provider-kubernetes` +
+`function-go-templating`/`function-auto-ready` + just the `SLO` XRD, deliberately
+**not** `provider-github` or the Bootstrap-tier XRDs, which stay `kind-dev`-only
+permanently) proven live end-to-end with a throwaway app: both the rejection path
+(`crossplaneReady: "false"` → zero resources created) and the success path (real
+commits, `kind-prod`'s own ArgoCD — its **pre-existing** instance, reused rather than
+duplicated, see that repo's own README for why — picking up the new tenant
+unprompted, a real namespace/`ServiceAccount`/`NetworkPolicy`). `kind-prod` also
+needed its own `argocd-repo-creds-jfillman` Secret, same fix as above but per-cluster
+— each ArgoCD instance needs its own credential registration, confirmed live rather
+than assumed to carry over.
+
+One real bug found and fixed along the way: the cluster-shared `tenants/<app>/
+app.yaml` was designed to use `spec.deletionPolicy: Orphan` (so tearing down one env
+never deletes a file a sibling env on the same cluster still needs) — but
+`provider-upjet-github` v0.19.1's `RepositoryFile` CRD has no such field at all,
+confirmed via a real `ReconcileError` (`.spec.deletionPolicy: field not declared in
+schema`) plus `kubectl explain`. Fixed with `managementPolicies` excluding
+`"Delete"` instead — same intent, correct field for the schema that's actually
+installed. Worth remembering for any future provider/field assumption: check
+`kubectl explain` against the real installed CRD version before trusting an older
+field name still applies.
+
+Also worth noting: the `AppProject`-deletion-ordering bug above did **not** recur
+during this pass's teardown, on either cluster — because the orphaned `app.yaml`
+correctly kept each `AppProject` alive until a deliberate, separate manual delete,
+the two `ApplicationSet`s never got the chance to race. Not a fix for the underlying
+bug (still open, see above), but a real data point that the orphan design avoids
+triggering it in the one case this session exercised.
+
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
 `01-argocd` (ArgoCD managing its own install has real bootstrap-ordering risk, doing
 this alongside the two-ArgoCD-instance split makes more sense — see
