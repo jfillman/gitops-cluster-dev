@@ -1,0 +1,14 @@
+# Not gated on by anything yet (NodeJSApplication.spec.devCluster doesn't exist yet -
+# out of scope for this pass, see idp_session_multicluster_architecture memory).
+# cicdReady is honestly "false": platform-cicd's control plane genuinely isn't running
+# on kind-dev yet (the still-separate platform-cicd-on-kind-dev migration).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kind-dev
+  namespace: crossplane-system
+  labels:
+    platform.io/cluster-registry: "true"
+data:
+  type: dev
+  cicdReady: "false"

@@ -1,0 +1,14 @@
+# crossplaneReady starts "false" - flipped to "true" in a separate, deliberate commit
+# only once the scoped Crossplane + SLO install (gitops-cluster-kind-prod) is actually
+# live-verified healthy. Manual attestation, not an automated probe - see this file's
+# sibling application.yaml header for why.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kind-prod
+  namespace: crossplane-system
+  labels:
+    platform.io/cluster-registry: "true"
+data:
+  type: upper
+  crossplaneReady: "false"
