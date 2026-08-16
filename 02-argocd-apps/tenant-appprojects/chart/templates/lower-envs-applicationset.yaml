@@ -33,9 +33,9 @@
 # parsed from its path - same convention <env>/identity.yaml already uses elsewhere
 # in this design. valueFiles below still needs the LITERAL matched path though (a
 # developer's file isn't required to be named <env-value>.yaml, e.g. `env: my-sandbox`
-# could live in platform/envs/scratch.yaml) - the generator's own path.path metadata
-# field (escaped below, see valueFiles) gives that, distinct from the file's content
-# keys.
+# could live in platform/envs/scratch.yaml) - the generator's own path metadata gives
+# that (see valueFiles' own comment for the exact fields - confirmed live, not just
+# assumed from ArgoCD's docs).
 {{- if .Values.appRepoUrl }}
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -90,7 +90,14 @@ spec:
               cluster: kind-dev
               envName: "{{ "{{" }}.env{{ "}}" }}"
             valueFiles:
-              - $appsrc/{{ "{{" }}.path.path{{ "}}" }}
+              # NOT {{ "{{" }}.path.path{{ "}}" }} - tried that first, confirmed live it
+              # resolves to just the containing DIRECTORY ("platform/envs"), not the
+              # full matched file path, causing a real "is a directory" helm-template
+              # failure the first time a real platform/envs/dev.yaml was committed.
+              # {{ "{{" }}.path{{ "}}" }} IS the directory (same value, confirmed);
+              # {{ "{{" }}.path.filename{{ "}}" }} is just the bare filename - concatenated,
+              # this is the git files generator's real full-path construction.
+              - $appsrc/{{ "{{" }}.path{{ "}}" }}/{{ "{{" }}.path.filename{{ "}}" }}
         # Source 1: $ref-only into the SAME app repo the generator above already
         # reads from - this tier has no separate gitops repo at all (§10's whole
         # point). directory.exclude: "*" - without it, ArgoCD's directory-source
