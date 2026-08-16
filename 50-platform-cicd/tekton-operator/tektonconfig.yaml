@@ -24,6 +24,18 @@
 # undocumented default (it happens to already be on with profile: all on vanilla
 # Kubernetes, confirmed live, but this makes it a deliberate choice, not an accident of
 # default behavior).
+#
+# scheduler/tektonpruner: NOT in profile: all's bundle (TektonScheduler/TektonPruner are
+# newer, opt-in components - Kueue-based multi-cluster pipeline scheduling and an
+# event-based PipelineRun/TaskRun pruner respectively), but v0.81.0's TektonConfig CRD
+# marks their sub-fields structurally `-required-` regardless of profile, confirmed live:
+# a spec missing them renders fine on a from-scratch install (defaulted by the operator's
+# own webhook) but fails real schema validation the moment anything re-applies the CR
+# ("spec.scheduler.disabled: Required value" etc.) - hit live on kind-dev, not on the
+# throwaway cluster this design was first proven against, because that one only ever went
+# through the simpler from-scratch install path once. Both disabled - this platform
+# already has its own pipelinerun-pruner-cronjob (platform-cicd's own chart) and has no
+# multi-cluster Tekton scheduling need.
 apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonConfig
 metadata:
@@ -40,3 +52,11 @@ spec:
     kubernetes:
       pipelinesAsCode:
         enable: true
+  scheduler:
+    disabled: true
+    multi-cluster-disabled: true
+    multi-cluster-role: Hub
+    config.yaml: {}
+  tektonpruner:
+    disabled: true
+    global-config: {}
