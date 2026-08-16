@@ -1,0 +1,38 @@
+# Same chart, same source (git HEAD) hack/bootstrap.sh installs imperatively for
+# kind-observe and, until now, kind-dev too - this Application makes kind-dev's install
+# declarative, replacing that imperative CONTEXT=kind-dev invocation.
+#
+# valueFiles points at hack/values-kind-dev.yaml, the SAME file hack/
+# generate-cluster-values.sh produces and hack/bootstrap.sh auto-discovers - one
+# canonical source of truth for kind-dev's per-cluster values (clusterName-derived
+# tenantsRepoUrl/tenantOnboardingApplicationSetName, Fulcio material, tektonChainsNamespace),
+# not duplicated into this Application manifest. Path is relative to this source's own
+# chart path (charts/platform-cicd-control-plane), resolving up to the repo root's hack/
+# dir - same repo, same git checkout, no cross-source $ref needed since both the chart
+# and the values file live in platform-cicd.git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-cicd-control-plane
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: platform-cicd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jfillman/platform-cicd.git
+    targetRevision: main
+    path: charts/platform-cicd-control-plane
+    helm:
+      releaseName: platform-cicd-control-plane
+      valueFiles:
+        - ../../hack/values-kind-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
