@@ -60,6 +60,13 @@ spec:
       # drops out of this ApplicationSet's generated set - a real risk with real tenants
       # live on this cluster, not a theoretical one. Restored once the rename is
       # confirmed adopted without recreation - see git history for the follow-up commit.
+      #
+      # MUST be an explicit empty list, not an omitted key - confirmed live that ArgoCD's
+      # ApplicationSet controller re-adds resources-finalizer.argocd.argoproj.io to
+      # generated Applications on every reconcile (~seconds later) when this key is
+      # simply absent, presumably a deliberate default-safe-to-cascade-delete behavior.
+      # Only an explicit `[]` actually suppresses it.
+      finalizers: []
       namespace: argocd-apps
     spec:
       project: default
