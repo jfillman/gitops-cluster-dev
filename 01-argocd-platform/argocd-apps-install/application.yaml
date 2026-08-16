@@ -21,6 +21,14 @@
 # install.yaml; a second Helm-managed CRD install would fight over ownership of the same
 # CustomResourceDefinition objects.
 #
+# configs.params."reposerver.repo.cache.expiration": 3m - same fix 01-argocd-platform/
+# install.yaml's own argocd-cmd-params-cm already carries (found live chasing the
+# xr-requests/ deadlock), applied here too after hitting the identical symptom live on
+# THIS instance: checkout-api-dev's Application reported Synced immediately after a
+# platform/envs/dev.yaml commit, but the live Rollout still ran the previous image until
+# a manual hard-refresh busted the stale cached manifest render. The two instances don't
+# share a repo-server, so patching one never fixed the other - each needs its own.
+#
 # No application.namespaces / cross-namespace watch configured, deliberately, on either
 # instance - ArgoCD's stock default scopes an instance's own controllers to Applications/
 # ApplicationSets/AppProjects physically inside ITS OWN release namespace only. That
@@ -50,6 +58,9 @@ spec:
           install: false
         dex:
           enabled: false
+        configs:
+          params:
+            reposerver.repo.cache.expiration: 3m
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd-apps
