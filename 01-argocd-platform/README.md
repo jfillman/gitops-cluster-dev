@@ -1,7 +1,10 @@
-# 01-argocd
+# 01-argocd-platform
 
 ArgoCD's own install + self-management — per `gitops-strategy.md` §4, "let ArgoCD
-manage ArgoCD."
+manage ArgoCD." Renamed from `01-argocd` 2026-08-16 when `argocd-apps` was split out
+(see status below) - pure repo reorg, zero live effect (`install.yaml` was never
+discovered by `root-app-of-apps.yaml`'s own recurse glob, so nothing was reading this
+directory's old name to begin with).
 
 ## Current state (documented, not yet self-managed)
 
@@ -32,15 +35,55 @@ syncOption that's the equivalent fix for an ArgoCD-managed Application (this ven
 manifest isn't ArgoCD-managed, so the fix here is the `kubectl` flag directly, not a
 `syncOptions` entry).
 
-**Deliberately deferred, not an oversight**: getting ArgoCD to manage its own install
+**Deliberately deferred, not an oversight**: getting ArgoCD to manage its OWN install
 (vendoring the install manifest, wiring a self-referential root `Application`) has real
 bootstrap-ordering risk — if it goes wrong, the instance that's currently the only thing
 running `platform-cicd`'s live pipelines and this very cluster-config repo's own sync
-goes with it. `gitops-strategy.md` §4's phase already groups this with the
-two-ArgoCD-instance split (Phase 4 of the `idp` build) — doing both together, carefully,
-once the rest of this repo's structure is proven out, rather than rushing self-management
-in now. Version stays pinned as a real vendored manifest (`install.yaml`) in the
-meantime, not just a version number in prose.
+goes with it. Still true, still deferred: version stays pinned as a real vendored
+manifest (`install.yaml`) in the meantime, not just a version number in prose.
+
+This used to bundle the two-ArgoCD-instance split in with that same deferral (`gitops-
+strategy.md` §4's "Phase 4"). Unbundled 2026-08-16, deliberately: the split itself
+carries none of the same risk (see "argocd-apps split" below) since `argocd-apps` is a
+brand-new instance with zero live workload on it, so there was no reason to keep waiting
+on the higher-risk self-management piece before doing the split.
+
+## `argocd-apps` split — live-verified 2026-08-16
+
+`gitops-strategy.md` §2's two-instance split, built without touching this instance's own
+bootstrap: `argocd-apps-install/application.yaml` installs a second `argo-cd` Helm
+release (chart `10.2.1`/`v3.4.5` - deliberately matching this instance's own running
+version exactly, confirmed live via `kubectl get deployment argocd-server -n argocd -o
+jsonpath='{.spec.template.spec.containers[0].image}'`, not the newer `10.3.2` `kind-
+prod`'s single-instance install uses - both instances on this cluster share one set of
+CRDs, so keeping them version-identical avoids any controller/CRD-schema skew) into its
+own `argocd-apps` namespace, `crds.install: false` to reuse the CRDs this directory's own
+`install.yaml` already put in the cluster.
+
+**No `application.namespaces` cross-namespace watch configured on either instance,
+deliberately** - confirmed live this is what actually delivers the isolation: each
+instance's controllers default-scope to Applications/ApplicationSets/AppProjects
+physically inside their own release namespace only. Verified two ways: (1) the 4
+per-app-Application-generating objects (`tenant-onboarding`, `tenant-appprojects`,
+`xr-requests` ApplicationSets, `idp-onboarding` AppProject) were moved into `argocd-apps`
+by editing their `metadata.namespace` in git, and `argocd-platform`'s own root correctly
+stopped managing them (the old copies just sat `OutOfSync`/`requiresPruning: true`,
+manually deleted once the new copies were confirmed `Synced`+healthy - zero live
+generated children existed under the old namespace before this move, so nothing was lost
+tearing them down) while `argocd-apps`'s own `applicationset-controller` picked them up
+and reconciled all 3 cleanly (`generated 0 applications` - correct, zero real tenants
+onboarded yet); (2) a real RBAC boundary test: a throwaway ServiceAccount scoped only to
+the `argocd-apps` namespace got a hard `Forbidden` (not just a permissive `auth can-i`
+check) attempting to `list secrets` in the `argocd` namespace, confirming this isolation
+holds at the real k8s API level, not just by convention.
+
+One real transient issue hit live, not a config bug: `argocd-apps-repo-server` crash-
+looped 5 times on first boot (`gpg-wrapper.sh: Cannot fork`, `git fetch ... unable to
+create thread`) during the burst of all-new-instance pods starting simultaneously - node
+had 20Gi available memory and 160045 PID ulimit headroom at the time (confirmed live via
+`podman exec dev-control-plane free -h`/`ulimit -a`), so this wasn't real resource
+exhaustion, just contention during the startup burst. Self-healed via Kubernetes' own
+crash-loop backoff/retry with zero manual intervention.
 
 ## `reposerver.repo.cache.expiration` — found live, 2026-08-15
 

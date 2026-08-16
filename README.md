@@ -152,6 +152,21 @@ bug on its own (see above for the real fix, also landed 2026-08-15), but a real 
 point that the orphan design avoids triggering it in the one case this session
 exercised even before the `Usage`-based fix existed.
 
+**New this pass (2026-08-16): the `argocd-platform`/`argocd-apps` split, live-verified.**
+`gitops-strategy.md` §2, unbundled from the platform instance's own self-management
+deferral (see `01-argocd-platform/README.md`'s own status) - `argocd-apps` is a
+brand-new instance with zero live workload, so it carried none of that deferral's real
+risk. The 4 per-app-Application-generating objects (`tenant-onboarding`,
+`tenant-appprojects`, `xr-requests`, `idp-onboarding`) moved into it; all 18 pre-existing
+cluster-admin-scoped Applications stayed untouched and healthy throughout. Live-verified:
+both instances correctly can't see each other's Applications by ArgoCD's own stock
+per-namespace default (no `application.namespaces` configured on either), confirmed via a
+real RBAC boundary test (a throwaway `argocd-apps`-scoped ServiceAccount got a hard
+`Forbidden` reading `argocd` namespace Secrets, not just a permissive check) and by the
+3 migrated `ApplicationSet`s reconciling cleanly under `argocd-apps`'s own controller
+with zero errors. Full detail, including a real (self-healed) `argocd-apps-repo-server`
+crash-loop hit during first boot, in `01-argocd-platform/README.md`.
+
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
 Argo Rollouts + Contour ingress inside
 `10-crds-operators/` (both raw-manifest installs pinned to a specific version, not yet
