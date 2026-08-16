@@ -61,7 +61,10 @@ own `argocd-apps` namespace, `crds.install: false` to reuse the CRDs this direct
 `install.yaml` already put in the cluster.
 
 **No `application.namespaces` cross-namespace watch configured on either instance,
-deliberately** - confirmed live this is what actually delivers the isolation: each
+deliberately, as of this split** (`argocd-platform` later grows a narrow, deliberate
+carve-out for tenant `-cicd` namespaces specifically - see "`*-cicd` namespace watch"
+below; `argocd-apps` remains untouched) - confirmed live this is what actually delivers
+the isolation at the time of this split: each
 instance's controllers default-scope to Applications/ApplicationSets/AppProjects
 physically inside their own release namespace only. Verified two ways: (1) the 4
 per-app-Application-generating objects (`tenant-onboarding`, `tenant-appprojects`,
@@ -84,6 +87,57 @@ had 20Gi available memory and 160045 PID ulimit headroom at the time (confirmed 
 `podman exec dev-control-plane free -h`/`ulimit -a`), so this wasn't real resource
 exhaustion, just contention during the startup burst. Self-healed via Kubernetes' own
 crash-loop backoff/retry with zero manual intervention.
+
+## `*-cicd` namespace watch — added live, 2026-08-16
+
+`platform-cicd`'s per-tenant onboarding (`nodejs-demo-app-pr-envs` ApplicationSet, its
+GitHub-token Secret, and the refresher CronJob's RBAC - see `platform-cicd`'s
+`docs/ephemeral-environments.md`) used to be pinned to the `argocd` namespace like
+everything else on this instance, which forced its token Secret there too and needed a
+narrowly-scoped but still cross-namespace Role/RoleBinding just to write it. Moved
+instead into the app's own `<type>-<app-name>-cicd` namespace, using ArgoCD's
+ApplicationSet-in-any-namespace feature:
+
+```
+data:
+  application.namespaces: "*-cicd"
+  applicationsetcontroller.namespaces: "*-cicd"
+  applicationsetcontroller.allowed.scm.providers: "https://api.github.com"
+  applicationsetcontroller.enable.tokenref.strict.mode: "true"
+```
+
+Deliberately scoped to the `*-cicd` glob only, not the broader `app-*`/`infra-*`
+destinations `platform-onboarding`'s `AppProject` already uses - `-cicd` is the one
+namespace class where "only this chart's own GitOps-managed release writes here" still
+holds, so widening `argocd-platform`'s own watch into it doesn't cross into
+`argocd-apps`'s territory or grant this instance any capability it didn't already have
+(it already owns Namespace/RBAC creation there via `platform-onboarding`). `argocd-apps`'s
+own `argocd-cmd-params-cm` is untouched.
+
+The last two keys weren't optional extras, both found live, not anticipated up front:
+
+1. **`applicationsetcontroller.allowed.scm.providers` is required, not optional, the
+   moment `applicationsetcontroller.namespaces` is set to anything non-default.**
+   `argocd-applicationset-controller` refused to start at all without it -
+   `"When enabling applicationset in any namespace using applicationset-namespaces, you
+   must either set --enable-scm-providers=false or specify --allowed-scm-providers"` -
+   crash-looping (`Error`, exit 1) instead of degrading gracefully. `pullRequest.github`
+   defaults to `https://api.github.com` when no `api:` override is set (confirmed against
+   ArgoCD's own docs, not guessed), so that's the value listed.
+2. **`applicationsetcontroller.enable.tokenref.strict.mode` makes ArgoCD reject any
+   `tokenRef` Secret that isn't labeled `argocd.argoproj.io/secret-type: scm-creds`** -
+   confirmed live: the controller logged exactly that rejection reason against the
+   old (pre-migration) Secret in `argocd`, which never carried the label, the moment
+   strict mode came up. Enabled deliberately alongside the namespace widening rather
+   than left off, since without it any ApplicationSet living in a `*-cicd` namespace
+   could read any Secret in that namespace via `tokenRef`, not just ones meant for it.
+
+Applied both live (`kubectl patch cm argocd-cmd-params-cm -n argocd --type merge -p
+'{"data":{...}}'` + `argocd-application-controller`/`argocd-applicationset-controller`
+restarts to pick it up) and in `install.yaml` itself, so a from-scratch bootstrap
+reproduces it. `argocd-application-controller` restarted clean on the first try;
+`argocd-applicationset-controller` needed the SCM-allowlist fix above before its restart
+came up healthy.
 
 ## `reposerver.repo.cache.expiration` — found live, 2026-08-15
 

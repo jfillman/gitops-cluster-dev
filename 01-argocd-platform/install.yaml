@@ -31288,8 +31288,30 @@ metadata:
 # short enough that it can't outlast the git generators' own ~180s reconcile cycle -
 # every generator reconcile now genuinely re-fetches instead of serving a stale
 # same-cache-key response for up to a day.
+#
+# application.namespaces / applicationsetcontroller.namespaces: both scoped to the
+# *-cicd glob so this instance's Application/ApplicationSet controllers also reconcile
+# objects living in every tenant's own -cicd namespace (platform-cicd-app's
+# templates/argocd/ephemeral-envs.yaml), not just this release namespace (argocd).
+# Deliberately narrow, not app-apps-install/README.md's "no application.namespaces
+# configured on either instance" default that the two-instance split's isolation
+# otherwise relies on - *-cicd is a namespace class argocd-platform already fully owns
+# (Namespace/RBAC/ServiceAccount creation via the platform-onboarding AppProject), so
+# widening its own watch into it doesn't cross into argocd-apps's territory or grant any
+# new capability, just lets objects that were already this instance's to manage live
+# there too. argocd-apps's own config is untouched.
+#
+# applicationsetcontroller.enable.tokenref.strict.mode: required once an ApplicationSet
+# generator's tokenRef Secret (see ephemeral-envs.yaml's pr-generator-token) can live
+# outside argocd - without strict mode a generator could read ANY Secret in its own
+# namespace, not just ones meant for it. Requires the referenced Secret to carry
+# `argocd.argoproj.io/secret-type: scm-creds` (set by ephemeral-envs.yaml's
+# pr-token-refresher CronJob at creation time).
 data:
   reposerver.repo.cache.expiration: 3m
+  application.namespaces: "*-cicd"
+  applicationsetcontroller.namespaces: "*-cicd"
+  applicationsetcontroller.enable.tokenref.strict.mode: "true"
 ---
 apiVersion: v1
 kind: ConfigMap
