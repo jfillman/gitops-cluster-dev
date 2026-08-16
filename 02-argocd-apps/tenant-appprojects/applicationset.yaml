@@ -53,10 +53,13 @@ spec:
         platform.io/component: cluster-config
         platform.io/subcomponent: tenant-onboarding
         platform.io/app: "{{.appName}}"
-      # Cascade-deletes the AppProject if a tenant's app.yaml is ever removed - same
-      # finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
-      finalizers:
-        - resources-finalizer.argocd.argoproj.io
+      # Finalizer temporarily removed 2026-08-16 for the appproject->onboarding rename
+      # below: this Application's cascade-delete finalizer would otherwise prune its
+      # tracked children (the lower AppProject AND the lower-envs ApplicationSet, which
+      # itself owns live per-env Applications like <app>-dev) the moment the OLD name
+      # drops out of this ApplicationSet's generated set - a real risk with real tenants
+      # live on this cluster, not a theoretical one. Restored once the rename is
+      # confirmed adopted without recreation - see git history for the follow-up commit.
       namespace: argocd-apps
     spec:
       project: default
