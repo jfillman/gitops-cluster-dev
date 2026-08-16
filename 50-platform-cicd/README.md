@@ -63,7 +63,8 @@ namespace (`--certificate-identity-regexp`, security-critical) - a new
 **Live-verified end-to-end 2026-08-16, `cicdReady` flipped `true`.** Applied for real to
 `kind-dev` (after first proving `tekton-operator/`'s design against a real throwaway kind
 cluster - see its own README): a throwaway tenant (`kind-dev-verify`, real
-`tenants/*/identity.yaml` commit to `platform-cicd-kind-dev-tenants`) onboarded cleanly
+`tenants/*/identity.yaml` commit to `platform-cicd-kind-dev-tenants` - that repo was
+eliminated later the same day, see below) onboarded cleanly
 through the real `platform-cicd-tenant-onboarding` ApplicationSet, and a manually
 triggered `build` PipelineRun completed all 14 tasks and produced a real Chains-signed
 attestation - confirmed by decoding the actual certificate, not just the
@@ -85,6 +86,15 @@ actually running a build, not by any dry-run or template diff:
   non-standard bundle location. See `platform-cicd`'s own
   `charts/platform-cicd-catalog/templates/tasks/build-image.yaml` for the full writeup -
   this affects every cluster running this chart, not just `kind-dev`.
+
+**`platform-cicd-kind-dev-tenants` eliminated 2026-08-16, later the same day.** Live
+history showed it only ever held throwaway apps, and both `platform-cicd/docs/
+onboarding.md` and `idp/README.md` confirmed `kind-dev`'s platform-cicd instance is
+idp-exclusive. `NodeJSApplication`'s Composition (`idp-service-catalog` v0.3.5) now
+commits `tenants/<app>/identity.yaml` straight into `gitops-cluster-dev-tenants` -
+`hack/values-kind-dev.yaml`'s `tenantsRepoUrl` repointed to match. See that repo's own
+README for the full layout - it now documents two identically-named `identity.yaml`
+files at different depths, deliberately made unmissable in the diagram there.
 
 All throwaway resources (tenant identity.yaml, Application, both namespaces, the
 PipelineRun) torn down after. `kind-dev`'s previous imperative Tekton/platform-cicd
