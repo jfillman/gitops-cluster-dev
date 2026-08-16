@@ -1,7 +1,17 @@
 # Not gated on by anything yet (NodeJSApplication.spec.devCluster doesn't exist yet -
 # out of scope for this pass, see idp_session_multicluster_architecture memory).
-# cicdReady is honestly "false": platform-cicd's control plane genuinely isn't running
-# on kind-dev yet (the still-separate platform-cicd-on-kind-dev migration).
+#
+# cicdReady flipped to "true" 2026-08-16: platform-cicd's control plane is now
+# GitOps-managed on kind-dev (gitops-cluster-dev/50-platform-cicd/ - tektoncd/operator +
+# platform-cicd-catalog + platform-cicd-control-plane, all ArgoCD Applications, replacing
+# the imperative hack/bootstrap.sh CONTEXT=kind-dev invocation from 2026-08-15). Manual
+# attestation, not an automated probe - see this file's own history for why. Live-verified
+# end-to-end with a throwaway app before flipping this: real tenant onboarding, a real
+# build PipelineRun, a real Chains-signed attestation (issuer
+# platform-cicd-kind-dev-fulcio-root, signing identity
+# https://kubernetes.io/namespaces/tekton-pipelines/serviceaccounts/tekton-chains-controller
+# - confirmed by decoding the actual certificate, not just the chains.tekton.dev/signed
+# annotation), all torn down after.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,4 +21,4 @@ metadata:
     platform.io/cluster-registry: "true"
 data:
   type: dev
-  cicdReady: "false"
+  cicdReady: "true"

@@ -60,8 +60,32 @@ namespace (`--certificate-identity-regexp`, security-critical) - a new
 
 ## Status
 
-`tekton-operator/`'s design is live-verified against a real throwaway kind cluster (see
-its own README) but **not yet applied to `kind-dev`** as of this commit. Once applied,
-still needs the same live end-to-end proof last session ran imperatively (throwaway app
-onboarding → real signed build) re-run against this declarative install to confirm parity
-before `kind-dev`'s existing imperative Tekton install can be considered superseded.
+**Live-verified end-to-end 2026-08-16, `cicdReady` flipped `true`.** Applied for real to
+`kind-dev` (after first proving `tekton-operator/`'s design against a real throwaway kind
+cluster - see its own README): a throwaway tenant (`kind-dev-verify`, real
+`tenants/*/identity.yaml` commit to `platform-cicd-kind-dev-tenants`) onboarded cleanly
+through the real `platform-cicd-tenant-onboarding` ApplicationSet, and a manually
+triggered `build` PipelineRun completed all 14 tasks and produced a real Chains-signed
+attestation - confirmed by decoding the actual certificate, not just the
+`chains.tekton.dev/signed` annotation: issuer `CN=platform-cicd-kind-dev-fulcio-root`
+(kind-dev's own independent Fulcio root, not kind-observe's), signing identity
+`https://kubernetes.io/namespaces/tekton-pipelines/serviceaccounts/tekton-chains-controller`
+- exactly the identity `tektonChainsNamespace: tekton-pipelines` was built to make the
+security-relevant identity check above pass. Two real bugs found and fixed only by
+actually running a build, not by any dry-run or template diff:
+
+- **kaniko's baked-in CA bundle was 2+ years stale** (`v1.23.2-debug`, dated 2024-07-08) -
+  bumped to `v1.24.0` (latest available). A real fix on its own merits, but NOT what
+  caused this session's actual failure (confirmed by testing - the newer image hit the
+  byte-identical error).
+- **The actual cause**: Tekton's own entrypoint injects `SSL_CERT_DIR` pointed at
+  standard Linux cert paths that don't exist in kaniko's non-standard image (confirmed
+  live - `/etc/ssl/certs` doesn't exist in it at all). Fixed with an explicit
+  `SSL_CERT_FILE` override on the `build-and-push` step pointing at kaniko's real,
+  non-standard bundle location. See `platform-cicd`'s own
+  `charts/platform-cicd-catalog/templates/tasks/build-image.yaml` for the full writeup -
+  this affects every cluster running this chart, not just `kind-dev`.
+
+All throwaway resources (tenant identity.yaml, Application, both namespaces, the
+PipelineRun) torn down after. `kind-dev`'s previous imperative Tekton/platform-cicd
+install is superseded by this directory going forward.

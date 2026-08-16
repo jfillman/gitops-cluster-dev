@@ -47,13 +47,35 @@ bundled with the operator release is what you get.
   found first and initially (incorrectly) concluded was the only path. Confirmed live
   running v0.50.0 - past the known v0.49.0 arm64 SIGSEGV crash `hack/bootstrap.sh` pins
   `PAC_VERSION=v0.48.1` to avoid, healthy with zero restarts on the same arm64 node class.
+- **`scheduler`/`tektonpruner` sub-fields are structurally required**, even though
+  neither component is in `profile: all`'s bundle - v0.81.0's `TektonConfig` CRD marks
+  them required regardless of profile. Only surfaced on the real `kind-dev` apply, not
+  the throwaway-cluster proof (that one only ever went through the simpler from-scratch
+  install path once) - a from-scratch install gets these defaulted by the operator's own
+  webhook, but re-applying the CR without them fails real schema validation
+  (`spec.scheduler.disabled: Required value` et al). Both explicitly disabled in
+  `tektonconfig.yaml`.
 
 ## Status
 
-Live-verified 2026-08-16 against a real throwaway kind cluster (created and torn down
-same session, never touched `kind-dev`): operator installs cleanly, `TektonConfig`
-reaches `Ready`, all expected component Deployments come up healthy in one namespace,
-Dashboard confirmed read-only, Results confirmed absent, PAC confirmed enabled and
-healthy. Not yet applied to `kind-dev` itself - see `50-platform-cicd/README.md`'s own
-status for the end-to-end onboarding+signed-build verification this still needs before
-`kind-dev`'s existing imperative Tekton install can be considered superseded.
+Proven twice: first against a real throwaway kind cluster (created and torn down same
+session, never touched `kind-dev`) - operator installs cleanly, `TektonConfig` reaches
+`Ready`, all expected component Deployments come up healthy in one namespace, Dashboard
+confirmed read-only, Results confirmed absent, PAC confirmed enabled and healthy. Then
+applied for real to `kind-dev` and live-verified end-to-end with a real signed build -
+see `50-platform-cicd/README.md`'s own status for the full writeup (including the
+`scheduler`/`tektonpruner` gap above, only surfaced on the real apply, and two real
+kaniko/TLS bugs found and fixed only by actually running a build).
+
+**A genuinely separate, real node-capacity problem was also found and fixed while
+applying this to `kind-dev`** - not a bug in this design, but worth recording here since
+it will recur on any cluster running this many components on one kind node: kubelet's
+default `max-pods` (110) and this specific podman container's own `--pids-limit`
+(2048, well below what ArgoCD ×2 + Crossplane + the full observability stack + Tekton
+needs simultaneously) were both hit live, producing exactly the same generic
+`fork/exec: resource temporarily unavailable` symptom regardless of actual CPU/memory
+headroom (both stayed low throughout - confirmed via `/proc/loadavg` and `free -h`, not
+assumed). Fixed live: `maxPods: 250` added to `/var/lib/kubelet/config.yaml` +
+`systemctl restart kubelet`, and `podman update --pids-limit 8192 dev-control-plane` -
+neither persists across a full `podman machine stop`/`start` cycle, so re-apply both
+after any VM-level restart of this node.
