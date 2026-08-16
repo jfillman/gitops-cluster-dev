@@ -40,6 +40,21 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=invalid"]
+  # Temporarily true 2026-08-16 for the appproject->onboarding rename below - this is the
+  # ApplicationSet's OWN meta-level syncPolicy (spec.syncPolicy), a different field from
+  # spec.template.spec.syncPolicy below (which governs each GENERATED Application's own
+  # sync behavior, untouched). Without this, the moment the old <app>-appproject name
+  # drops out of this ApplicationSet's generated set, ArgoCD deletes that Application and
+  # cascade-prunes everything it tracks - the lower AppProject AND the lower-envs
+  # ApplicationSet, which itself owns live per-env Applications like <app>-dev. A real
+  # risk with real tenants live on this cluster, not theoretical. Tried removing the
+  # Application's own finalizer first (both by live kubectl patch and via the template
+  # above) - confirmed live that ArgoCD's ApplicationSet controller re-adds
+  # resources-finalizer.argocd.argoproj.io within ~1s regardless of what the template
+  # says, so that field isn't the right lever; this one is. Restored to false once the
+  # rename is confirmed adopted without recreation - see git history for the follow-up.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
   generators:
     - git:
         repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
@@ -53,20 +68,10 @@ spec:
         platform.io/component: cluster-config
         platform.io/subcomponent: tenant-onboarding
         platform.io/app: "{{.appName}}"
-      # Finalizer temporarily removed 2026-08-16 for the appproject->onboarding rename
-      # below: this Application's cascade-delete finalizer would otherwise prune its
-      # tracked children (the lower AppProject AND the lower-envs ApplicationSet, which
-      # itself owns live per-env Applications like <app>-dev) the moment the OLD name
-      # drops out of this ApplicationSet's generated set - a real risk with real tenants
-      # live on this cluster, not a theoretical one. Restored once the rename is
-      # confirmed adopted without recreation - see git history for the follow-up commit.
-      #
-      # MUST be an explicit empty list, not an omitted key - confirmed live that ArgoCD's
-      # ApplicationSet controller re-adds resources-finalizer.argocd.argoproj.io to
-      # generated Applications on every reconcile (~seconds later) when this key is
-      # simply absent, presumably a deliberate default-safe-to-cascade-delete behavior.
-      # Only an explicit `[]` actually suppresses it.
-      finalizers: []
+      # Cascade-deletes the AppProject if a tenant's app.yaml is ever removed - same
+      # finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
       namespace: argocd-apps
     spec:
       project: default
