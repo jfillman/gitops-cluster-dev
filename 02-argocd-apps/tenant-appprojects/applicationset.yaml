@@ -8,12 +8,27 @@
 # ApplicationSet can only generate Application objects, not arbitrary resource kinds -
 # there's no native "AppProjectSet" generator. The workaround here (same shape used
 # elsewhere in the ArgoCD ecosystem for this exact gap): generate an Application per
-# app whose only job is to render ./chart's single AppProject template, values-driven.
+# app whose only job is to render ./chart's templates, values-driven.
 #
-# No {{ }}-vs-Helm-template escaping needed here (unlike platform-cicd's chart-embedded
-# tenant-onboarding-applicationset.yaml) - this repo's manifests are plain YAML, never
-# passed through Helm themselves, so ArgoCD's own goTemplate syntax below is written
-# directly, no double-escaping.
+# ./chart now renders THREE objects, not one (gitops-strategy.md §10, added
+# 2026-08-16): the original per-app AppProject (appproject.yaml, upper-env scoped),
+# a second narrower AppProject (appproject-lower.yaml, dev-cluster-only self-service
+# lower envs), and a per-app ApplicationSet (lower-envs-applicationset.yaml) whose own
+# git generator watches THIS app's own src repo (appRepoUrl, not this repo) for
+# platform/envs/*.yaml - the only way to fan out to N different apps' own repos, since
+# a single git-files generator can only ever have one static repoURL. See that
+# template's own header for why it (unlike this file) DOES need {{ }}-vs-Helm-template
+# escaping - it emits ArgoCD goTemplate syntax of its OWN, one Helm-render layer
+# beneath this file's plain-YAML ApplicationSet.
+#
+# appRepoUrl added to valuesObject below 2026-08-16 - already present in every
+# tenants/<app>/app.yaml (NodeJSApplication's own Composition writes it), just
+# unused by this chart until the lower-env tier needed it.
+#
+# No {{ }}-vs-Helm-template escaping needed in THIS file (unlike platform-cicd's
+# chart-embedded tenant-onboarding-applicationset.yaml) - this repo's manifests are
+# plain YAML, never passed through Helm themselves, so ArgoCD's own goTemplate syntax
+# below is written directly, no double-escaping.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -53,6 +68,7 @@ spec:
           valuesObject:
             appName: "{{.appName}}"
             gitopsRepoUrl: "{{.gitopsRepoUrl}}"
+            appRepoUrl: "{{.appRepoUrl}}"
             idpServiceCatalogRepoUrl: "https://github.com/jfillman/idp-service-catalog.git"
       destination:
         server: https://kubernetes.default.svc

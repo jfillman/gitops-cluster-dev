@@ -1,0 +1,113 @@
+# gitops-strategy.md §10: this app's own lower-env self-service tier. A per-app
+# ApplicationSet - this chart's second templated-output resource kind after
+# appproject-lower.yaml, extending the established "Application renders some other
+# kind via a chart" trick one level further (ApplicationSet can't be generated
+# directly by an ApplicationSet either, same reason AppProject can't - see
+# ../../applicationset.yaml's own header).
+#
+# Its git `files` generator watches THIS APP'S OWN src repo (.Values.appRepoUrl - a
+# different repo per app-instance of this chart, which is what makes per-app fan-out
+# to N different app repos possible at all - a single git generator can only ever
+# have one static repoURL, so watching every app's own repo from one global
+# ApplicationSet isn't achievable; one ApplicationSet PER app, generated here as part
+# of that app's own onboarding, is the real shape) for platform/envs/*.yaml,
+# live-read, no gitops-<app-name> repo involved at all for this tier - a developer
+# commits straight to platform/envs/ in their own repo and pushes, no release
+# pipeline, no gitops-cluster-dev-tenants commit, matching platform-cicd's own
+# tracked-copy -> live-read precedent for cicd.yaml.
+#
+# IMPORTANT for future editors: this file's own `template:` block uses ArgoCD
+# ApplicationSet's OWN goTemplate syntax (goTemplate: true - .env, .path.path etc,
+# resolved by ArgoCD at generate-time), which collides with THIS chart's Helm
+# template engine (this file is rendered by Helm FIRST, when the parent
+# tenant-appprojects Application syncs, one layer above ArgoCD's own template
+# resolution of the ApplicationSet object this renders). Identical collision
+# platform-cicd's own tenant-onboarding-applicationset.yaml already hit and solved
+# (charts/platform-cicd-control-plane/templates/argocd/, e.g.
+# "{{ "{{" }}.platformIdentity.appName{{ "}}" }}") - every ArgoCD template expression
+# below is escaped the same way, as a literal double-curly-brace string, for Helm to
+# emit verbatim. Do not "simplify" these - Helm would otherwise try to resolve e.g.
+# .env against ITS OWN (nonexistent) root context and break the render.
+#
+# envName: read from the matched FILE'S OWN `env:` field (self-describing), not
+# parsed from its path - same convention <env>/identity.yaml already uses elsewhere
+# in this design. valueFiles below still needs the LITERAL matched path though (a
+# developer's file isn't required to be named <env-value>.yaml, e.g. `env: my-sandbox`
+# could live in platform/envs/scratch.yaml) - the generator's own path.path metadata
+# field (escaped below, see valueFiles) gives that, distinct from the file's content
+# keys.
+{{- if .Values.appRepoUrl }}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ .Values.appName }}-lower-envs
+  namespace: argocd-apps
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: tenant-onboarding
+    platform.io/app: {{ .Values.appName }}
+    platform.io/env-tier: lower
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=invalid"]
+  generators:
+    - git:
+        repoURL: {{ .Values.appRepoUrl }}
+        revision: main
+        files:
+          - path: "platform/envs/*.yaml"
+  template:
+    metadata:
+      name: "{{ .Values.appName }}-{{ "{{" }}.env{{ "}}" }}"
+      labels:
+        platform.io/component: cluster-config
+        platform.io/subcomponent: tenant-onboarding
+        platform.io/app: {{ .Values.appName }}
+        platform.io/env: "{{ "{{" }}.env{{ "}}" }}"
+        platform.io/env-tier: lower
+      # Cascade-deletes this env's real resources if the developer removes their own
+      # platform/envs/<file>.yaml - same finalizer/reasoning used by every other
+      # generated Application in this design.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      namespace: argocd-apps
+    spec:
+      project: {{ .Values.appName }}-lower
+      sources:
+        # Source 0: idp-service-catalog's shared idp-application chart,
+        # operator-owned valuesObject - identity/placement only, same
+        # helm.valuesObject-beats-helm.valueFiles precedence property
+        # tenant-onboarding/applicationset.yaml already relies on (live-attack-tested
+        # elsewhere in this project). v0.1.0 pin matches tenant-onboarding's own pin
+        # exactly - confirmed byte-identical to the latest tag (v0.3.5) for this
+        # chart, so no version skew introduced by not tracking latest.
+        - repoURL: {{ .Values.idpServiceCatalogRepoUrl }}
+          targetRevision: v0.1.0
+          path: charts/idp-application
+          helm:
+            valuesObject:
+              appName: {{ .Values.appName }}
+              cluster: kind-dev
+              envName: "{{ "{{" }}.env{{ "}}" }}"
+            valueFiles:
+              - $appsrc/{{ "{{" }}.path.path{{ "}}" }}
+        # Source 1: $ref-only into the SAME app repo the generator above already
+        # reads from - this tier has no separate gitops repo at all (§10's whole
+        # point). directory.exclude: "*" - without it, ArgoCD's directory-source
+        # auto-detection would try to apply every *.yaml in the app's own repo as a
+        # raw manifest, a real gotcha already hit and documented by
+        # tenant-onboarding/applicationset.yaml's own version of this pattern.
+        - repoURL: {{ .Values.appRepoUrl }}
+          targetRevision: main
+          ref: appsrc
+          directory:
+            exclude: "*"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "app-{{ .Values.appName }}-{{ "{{" }}.env{{ "}}" }}"
+      syncPolicy:
+        automated:
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}
