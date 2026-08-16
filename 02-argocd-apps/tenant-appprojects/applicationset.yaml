@@ -63,7 +63,7 @@ spec:
           - path: "tenants/*/app.yaml"
   template:
     metadata:
-      name: "{{.appName}}-appproject"
+      name: "{{.appName}}-onboarding"
       labels:
         platform.io/component: cluster-config
         platform.io/subcomponent: tenant-onboarding
