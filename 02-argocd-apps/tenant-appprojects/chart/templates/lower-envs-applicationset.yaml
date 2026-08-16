@@ -90,14 +90,23 @@ spec:
               cluster: kind-dev
               envName: "{{ "{{" }}.env{{ "}}" }}"
             valueFiles:
-              # NOT {{ "{{" }}.path.path{{ "}}" }} - tried that first, confirmed live it
-              # resolves to just the containing DIRECTORY ("platform/envs"), not the
-              # full matched file path, causing a real "is a directory" helm-template
-              # failure the first time a real platform/envs/dev.yaml was committed.
-              # {{ "{{" }}.path{{ "}}" }} IS the directory (same value, confirmed);
-              # {{ "{{" }}.path.filename{{ "}}" }} is just the bare filename - concatenated,
-              # this is the git files generator's real full-path construction.
-              - $appsrc/{{ "{{" }}.path{{ "}}" }}/{{ "{{" }}.path.filename{{ "}}" }}
+              # Confirmed live (two real failures getting here, both left as history
+              # in this comment since the exact shape of ArgoCD's git-files-generator
+              # `path` param isn't documented anywhere in this project otherwise):
+              # `.path` is a MAP, not a string - {{ "{{" }}.path{{ "}}" }} alone
+              # renders Go's default map stringification
+              # (`map[basename:envs ... filename:dev.yaml path:platform/envs
+              # segments:[platform envs]]`), not a clean path, and produced a real
+              # "matched no files" ArgoCD error live. `.path.path` (not `.path`) is
+              # the map's own directory-string field ("platform/envs") - an earlier
+              # attempt using ONLY `.path.path` (assuming it was the full file path)
+              # produced a different real failure first ("is a directory" from helm
+              # template, since it's the directory, not the file). `.path.filename`
+              # is the bare matched filename ("dev.yaml"). Concatenating both fields
+              # is the correct full path - reconstructing it this way rather than a
+              # single convenience field because none exists in this generator's
+              # param shape.
+              - $appsrc/{{ "{{" }}.path.path{{ "}}" }}/{{ "{{" }}.path.filename{{ "}}" }}
         # Source 1: $ref-only into the SAME app repo the generator above already
         # reads from - this tier has no separate gitops repo at all (§10's whole
         # point). directory.exclude: "*" - without it, ArgoCD's directory-source
