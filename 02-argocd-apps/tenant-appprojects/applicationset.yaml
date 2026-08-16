@@ -29,6 +29,22 @@
 # chart-embedded tenant-onboarding-applicationset.yaml) - this repo's manifests are
 # plain YAML, never passed through Helm themselves, so ArgoCD's own goTemplate syntax
 # below is written directly, no double-escaping.
+#
+# template.metadata.name renamed <app>-appproject -> <app>-onboarding, 2026-08-16 -
+# "appproject" undersold what this renders once it's THREE objects, not one (see above).
+# Live-verified safe: the per-env Applications (<app>-dev) and the lower-envs
+# ApplicationSet kept their original UIDs throughout (never recreated). One real gotcha
+# hit along the way, not anticipated: an omitted or explicit-empty template.metadata.
+# finalizers doesn't stick - ArgoCD's ApplicationSet controller re-adds
+# resources-finalizer.argocd.argoproj.io to already-generated Applications within ~1s
+# regardless. The actual lever for "don't cascade-delete children when the old name
+# drops out of the generated set" is spec.syncPolicy.preserveResourcesOnDeletion (a
+# top-level ApplicationSet field, applied+removed for this migration only - see git
+# history). Even with that set, the two AppProjects per tenant (not the ApplicationSet)
+# still got recreated (new UID) - never fully root-caused, best guess is a delete queued
+# during the finalizer back-and-forth before the corrected fix landed. No lasting damage
+# since AppProjects are referenced by name, not UID, and nothing else in this file's
+# blast radius has an ownerReference into them.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -40,21 +56,6 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=invalid"]
-  # Temporarily true 2026-08-16 for the appproject->onboarding rename below - this is the
-  # ApplicationSet's OWN meta-level syncPolicy (spec.syncPolicy), a different field from
-  # spec.template.spec.syncPolicy below (which governs each GENERATED Application's own
-  # sync behavior, untouched). Without this, the moment the old <app>-appproject name
-  # drops out of this ApplicationSet's generated set, ArgoCD deletes that Application and
-  # cascade-prunes everything it tracks - the lower AppProject AND the lower-envs
-  # ApplicationSet, which itself owns live per-env Applications like <app>-dev. A real
-  # risk with real tenants live on this cluster, not theoretical. Tried removing the
-  # Application's own finalizer first (both by live kubectl patch and via the template
-  # above) - confirmed live that ArgoCD's ApplicationSet controller re-adds
-  # resources-finalizer.argocd.argoproj.io within ~1s regardless of what the template
-  # says, so that field isn't the right lever; this one is. Restored to false once the
-  # rename is confirmed adopted without recreation - see git history for the follow-up.
-  syncPolicy:
-    preserveResourcesOnDeletion: true
   generators:
     - git:
         repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
