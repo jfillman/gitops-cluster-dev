@@ -18,7 +18,7 @@ a normal PR — same framing as `root-app-of-apps.yaml`'s own header comment):
 
 ```
 kubectl create namespace argocd
-kubectl apply --server-side -n argocd -f 01-argocd/install.yaml
+kubectl apply --server-side -n argocd -f 01-argocd-platform/install.yaml
 kubectl apply -f root-app-of-apps.yaml
 ```
 

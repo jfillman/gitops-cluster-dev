@@ -15,7 +15,7 @@ Tekton/Pipelines-as-Code/sigstore stack (`tekton-pipelines`, `tekton-pipelines-r
 `pipelines-as-code`, `tekton-chains`, `fulcio-system`, `rekor-system` namespaces) that
 `platform-cicd/hack/bootstrap.sh` already installs today.
 
-**Deliberately deferred, matching `01-argocd`'s reasoning**: this is the namespace
+**Deliberately deferred, matching `01-argocd-platform`'s reasoning**: this is the namespace
 actually running every live build/test/deploy/release pipeline for `nodejs-demo-app`
 and `cicd-flow-test-app` right now. Moving it under ArgoCD management is exactly the
 kind of change worth doing carefully, live-verified per component, not as a bulk capture

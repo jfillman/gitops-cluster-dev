@@ -2,7 +2,7 @@
 # crossplane -n crossplane-system` output exactly (null — fully default install) so
 # adoption is a no-op sync, not a recreation. project: default for now — moves to a
 # real cluster-admin-scoped AppProject once the argocd-platform/argocd-apps split
-# happens (gitops-strategy.md §4, deferred with 01-argocd/).
+# happens (gitops-strategy.md §4, deferred with 01-argocd-platform/).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

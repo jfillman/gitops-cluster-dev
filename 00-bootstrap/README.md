@@ -20,7 +20,7 @@ Namespace inventory, by owner, as of 2026-08-12:
 | `crossplane-system` | Crossplane's own Helm chart — `10-crds-operators/crossplane/` |
 | `cert-manager`, `external-secrets` | Their own Helm charts — `10-crds-operators/` |
 | `argo-rollouts`, `projectcontour` | Raw-manifest installs — `10-crds-operators/` |
-| `argocd` | ArgoCD's own raw install — `01-argocd/` |
+| `argocd` | ArgoCD's own raw install — `01-argocd-platform/` |
 | `observability` | `kube-prometheus-stack`/`loki`/`minio`/`otel-collector`/`tempo`/`thanos` — `40-observability/` |
 | `holmesgpt` | Own Helm chart — `40-observability/` (tentative grouping, see that dir's README) |
 | `platform-system`, `platform-catalog`, `platform-secrets`, `pipelines-as-code`, `tekton-pipelines`, `tekton-pipelines-resolvers`, `tekton-chains`, `fulcio-system`, `rekor-system` | `platform-cicd`'s own charts + raw installs — `50-platform-cicd/` |

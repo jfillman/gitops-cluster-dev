@@ -120,7 +120,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
       # Same annotation-size limit hit on ArgoCD's and external-secrets' own CRDs
-      # (see 01-argocd/README.md) - kube-prometheus-stack's CRDs (Prometheus,
+      # (see 01-argocd-platform/README.md) - kube-prometheus-stack's CRDs (Prometheus,
       # Alertmanager, PrometheusRule, ServiceMonitor, ThanosRuler, Probe, ...) are
       # large enough to hit it too. Confirmed necessary live.
       - ServerSideApply=true

@@ -19,7 +19,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: xr-requests
-  namespace: argocd
+  namespace: argocd-apps
   labels:
     platform.io/component: cluster-config
     platform.io/subcomponent: xr-requests
@@ -44,7 +44,7 @@ spec:
       # same reasoning as the sibling ApplicationSets in this repo.
       finalizers:
         - resources-finalizer.argocd.argoproj.io
-      namespace: argocd
+      namespace: argocd-apps
     spec:
       project: idp-onboarding
       source:
@@ -88,7 +88,7 @@ spec:
           # the original failure's timing/cluster almost exactly - all 3 tore down
           # cleanly, no code change made to the Usage/finalizer mechanism in between.
           # Best lead: a real, separate ArgoCD Redis-cache staleness bug
-          # (../../01-argocd/README.md) was found and fixed immediately before the clean
+          # (../../01-argocd-platform/README.md) was found and fixed immediately before the clean
           # runs, and the original failures happened during heavy same-day onboard/
           # teardown churn - plausible, not proven. If this ever recurs: kubectl patch
           # usage <name> -n <ns> --type=merge -p '{"metadata":{"finalizers":[]}}'. Treat

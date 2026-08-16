@@ -16,8 +16,8 @@ enforces.
 
 ```
 00-bootstrap/        namespaces (documented, mostly pre-existing), RBAC/NetworkPolicy baseline (not yet built)
-01-argocd/            ArgoCD's own install — documented, not yet self-managed (deferred, see status)
-02-argocd-apps/       tenant-onboarding ApplicationSets (per-app AppProject + real app deployment + xr-requests/ XR onboarding) — real, wired 2026-08-13/15
+01-argocd-platform/  ArgoCD's own install (the platform instance) + argocd-apps's own install — see status
+02-argocd-apps/       tenant-onboarding ApplicationSets (per-app AppProject + real app deployment + xr-requests/ XR onboarding), reconciled by argocd-apps — real, wired 2026-08-13/15, moved to argocd-apps 2026-08-16
 10-crds-operators/    Crossplane + providers/functions, cert-manager, external-secrets, Argo Rollouts, ingress
 20-service-catalog/   idp-service-catalog XRDs/Compositions, git-tag pinned — real, wired 2026-08-13
 30-policy/            cluster-wide guardrails (not built yet)
@@ -39,8 +39,8 @@ listed here is already under GitOps management — check each group's README.
 real and wired as of 2026-08-13 — see that directory's own README.
 `02-argocd-apps/`'s two `ApplicationSet`s (`tenant-appprojects`, `tenant-onboarding`) are
 real and live-verified as of 2026-08-13, built inside the existing single `01-argocd`
-instance rather than a real second `argocd-apps` instance (that split is still deferred,
-see below). Both `NodeJSApplication` and `ApplicationEnvironment` (`idp-service-catalog`,
+(now `01-argocd-platform`) instance rather than a real second `argocd-apps` instance
+(that split landed 2026-08-16, see below). Both `NodeJSApplication` and `ApplicationEnvironment` (`idp-service-catalog`,
 built 2026-08-13/15) now feed these for real — first proven end-to-end 2026-08-15 with a
 throwaway app (namespace/`ServiceAccount`/`NetworkPolicy` actually rendered, `rollout:
 null` path, exactly as `idp-application`'s own fixtures predicted).
@@ -136,7 +136,7 @@ Two real bugs found live:
   retest. A later same-day pass reproduced the same deletion path 3 times, including
   one matching the original failure's timing/cluster almost exactly — all 3 tore down
   cleanly, no code change made to the `Usage`/finalizer mechanism in between. Best
-  lead: a real, separate ArgoCD Redis-cache staleness bug (`01-argocd/README.md`) was
+  lead: a real, separate ArgoCD Redis-cache staleness bug (`01-argocd-platform/README.md`) was
   found and fixed immediately before the clean runs, and the original failures happened
   during heavy same-day onboard/teardown churn — plausible, not proven. Recovery, if
   this ever recurs, requires manually clearing the `Usage`'s own finalizer — see
@@ -153,9 +153,7 @@ point that the orphan design avoids triggering it in the one case this session
 exercised even before the `Usage`-based fix existed.
 
 **Documented only, adoption deferred (each has a stated reason, not an oversight)**:
-`01-argocd` (ArgoCD managing its own install has real bootstrap-ordering risk, doing
-this alongside the two-ArgoCD-instance split makes more sense — see
-`idp/docs/gitops-strategy.md` §4's phase 4), Argo Rollouts + Contour ingress inside
+Argo Rollouts + Contour ingress inside
 `10-crds-operators/` (both raw-manifest installs pinned to a specific version, not yet
 re-vendored), `40-observability/` and `50-platform-cicd/` (many releases, several with
 substantial custom values — capturing all of them accurately is the next increment, not

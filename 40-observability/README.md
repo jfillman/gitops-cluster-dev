@@ -34,7 +34,7 @@ default `release:`-label ServiceMonitor/PrometheusRule selectors line up with wh
 idp-service-catalog's SLO Composition and `idp-application`'s own
 `serviceMonitor.additionalLabels` already assumed - confirmed against a real
 install now, not left as an unconfirmed placeholder. `ServerSideApply=true` on
-`kube-prometheus-stack` (same annotation-size-limit fix `01-argocd/`/
+`kube-prometheus-stack` (same annotation-size-limit fix `01-argocd-platform/`/
 `external-secrets/` needed - its CRDs are large enough to hit it too).
 
 **HolmesGPT is not built here yet** - its real values (narrower toolset, dropped

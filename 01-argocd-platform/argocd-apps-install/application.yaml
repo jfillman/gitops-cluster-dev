@@ -1,0 +1,60 @@
+# gitops-strategy.md §2/§4: the app-owner-facing ArgoCD instance, installed and owned
+# by argocd-platform (this Application lives in argocd-platform's own `argocd`
+# namespace - it's the installer, not the thing being installed). "Let ArgoCD manage
+# ArgoCD" applied to the SECOND instance rather than the first: the first instance's own
+# self-management (vendoring 01-argocd-platform/install.yaml into a self-referential
+# Application) stays deliberately deferred - see that directory's own README - real
+# bootstrap-ordering risk if that goes wrong takes down the only thing running this
+# repo's own sync. Standing up argocd-apps fresh via a normal Application carries none of
+# that risk: it's a brand-new instance with zero live workload on it yet.
+#
+# Chart version 10.2.1 (appVersion v3.4.5) deliberately matches the exact version
+# already running on kind-dev's platform instance (confirmed live via
+# `kubectl get deployment argocd-server -n argocd -o jsonpath='{.spec.template.spec.
+# containers[0].image}'`), not the newer 10.3.2/v3.5.0 bootstrap-upper-cluster.sh uses
+# for kind-prod's single-instance install - both instances on THIS cluster share the
+# same CRDs (installed once, cluster-wide, by 01-argocd-platform/install.yaml's own
+# v3.4.5-pinned manifest), so keeping both ArgoCD versions identical avoids any
+# controller/CRD-schema skew risk between them.
+#
+# crds.install: false - the CRDs are already cluster-wide from 01-argocd-platform's own
+# install.yaml; a second Helm-managed CRD install would fight over ownership of the same
+# CustomResourceDefinition objects.
+#
+# No application.namespaces / cross-namespace watch configured, deliberately, on either
+# instance - ArgoCD's stock default scopes an instance's own controllers to Applications/
+# ApplicationSets/AppProjects physically inside ITS OWN release namespace only. That
+# stock default is the entire mechanism this split relies on: argocd-platform (namespace
+# `argocd`) and argocd-apps (namespace `argocd-apps`) structurally can't see or reconcile
+# each other's objects without one of them opting in, so no RBAC config is needed to get
+# clean isolation - it's the default, confirmed against the chart's own docs before
+# relying on it here.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-apps-install
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: argocd-apps
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    targetRevision: 10.2.1
+    helm:
+      releaseName: argocd-apps
+      valuesObject:
+        crds:
+          install: false
+        dex:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd-apps
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

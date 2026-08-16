@@ -26,7 +26,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
       # Same annotation-size limit hit on ArgoCD's/external-secrets'/
-      # kube-prometheus-stack's own CRDs (01-argocd/README.md) - Argo Rollouts'
+      # kube-prometheus-stack's own CRDs (01-argocd-platform/README.md) - Argo Rollouts'
       # CRDs (Rollout, AnalysisTemplate, AnalysisRun, Experiment,
       # ClusterAnalysisTemplate) are large enough to hit it too. Added
       # proactively this time, given the pattern's repeated three times already.

@@ -18,7 +18,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: tenant-appprojects
-  namespace: argocd
+  namespace: argocd-apps
   labels:
     platform.io/component: cluster-config
     platform.io/subcomponent: tenant-onboarding
@@ -42,7 +42,7 @@ spec:
       # finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
       finalizers:
         - resources-finalizer.argocd.argoproj.io
-      namespace: argocd
+      namespace: argocd-apps
     spec:
       project: default
       source:
@@ -56,7 +56,7 @@ spec:
             idpServiceCatalogRepoUrl: "https://github.com/jfillman/idp-service-catalog.git"
       destination:
         server: https://kubernetes.default.svc
-        namespace: argocd
+        namespace: argocd-apps
       syncPolicy:
         automated:
           selfHeal: true
