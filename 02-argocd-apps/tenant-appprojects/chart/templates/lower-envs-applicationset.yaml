@@ -17,8 +17,8 @@
 # tracked-copy -> live-read precedent for cicd.yaml.
 #
 # IMPORTANT for future editors: this file's own `template:` block uses ArgoCD
-# ApplicationSet's OWN goTemplate syntax (goTemplate: true - .env, .path.path etc,
-# resolved by ArgoCD at generate-time), which collides with THIS chart's Helm
+# ApplicationSet's OWN goTemplate syntax (goTemplate: true - .envName, .path.path
+# etc, resolved by ArgoCD at generate-time), which collides with THIS chart's Helm
 # template engine (this file is rendered by Helm FIRST, when the parent
 # tenant-appprojects Application syncs, one layer above ArgoCD's own template
 # resolution of the ApplicationSet object this renders). Identical collision
@@ -27,15 +27,23 @@
 # "{{ "{{" }}.platformIdentity.appName{{ "}}" }}") - every ArgoCD template expression
 # below is escaped the same way, as a literal double-curly-brace string, for Helm to
 # emit verbatim. Do not "simplify" these - Helm would otherwise try to resolve e.g.
-# .env against ITS OWN (nonexistent) root context and break the render.
+# .envName against ITS OWN (nonexistent) root context and break the render.
 #
-# envName: read from the matched FILE'S OWN `env:` field (self-describing), not
-# parsed from its path - same convention <env>/identity.yaml already uses elsewhere
-# in this design. valueFiles below still needs the LITERAL matched path though (a
-# developer's file isn't required to be named <env-value>.yaml, e.g. `env: my-sandbox`
-# could live in platform/envs/scratch.yaml) - the generator's own path metadata gives
-# that (see valueFiles' own comment for the exact fields - confirmed live, not just
-# assumed from ArgoCD's docs).
+# envName: read from the matched FILE'S OWN `envName:` field (self-describing), not
+# parsed from its path - same self-describing-content idea <env>/identity.yaml
+# already uses elsewhere in this design, but a DIFFERENT field name than that
+# file's own `env:` - confirmed live and real, not theoretical: THIS file (unlike
+# identity.yaml) also gets fed straight into idp-application's own Helm values as
+# valueFiles below, where `env:` is already a reserved key (the chart's Embedded-
+# tier container env-var list - its own values.yaml explicitly documents choosing
+# `envName` over `env` for exactly this collision risk, which a first pass here
+# still walked into: `env: dev` in a real platform/envs/dev.yaml produced a real
+# "range can't iterate over dev" Helm error inside idp-application's own
+# workloadEnv helper). valueFiles below still needs the LITERAL matched path
+# though (a developer's file isn't required to be named <env-value>.yaml, e.g.
+# `envName: my-sandbox` could live in platform/envs/scratch.yaml) - the
+# generator's own path metadata gives that (see valueFiles' own comment for the
+# exact fields - confirmed live, not just assumed from ArgoCD's docs).
 {{- if .Values.appRepoUrl }}
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -58,12 +66,12 @@ spec:
           - path: "platform/envs/*.yaml"
   template:
     metadata:
-      name: "{{ .Values.appName }}-{{ "{{" }}.env{{ "}}" }}"
+      name: "{{ .Values.appName }}-{{ "{{" }}.envName{{ "}}" }}"
       labels:
         platform.io/component: cluster-config
         platform.io/subcomponent: tenant-onboarding
         platform.io/app: {{ .Values.appName }}
-        platform.io/env: "{{ "{{" }}.env{{ "}}" }}"
+        platform.io/env: "{{ "{{" }}.envName{{ "}}" }}"
         platform.io/env-tier: lower
       # Cascade-deletes this env's real resources if the developer removes their own
       # platform/envs/<file>.yaml - same finalizer/reasoning used by every other
@@ -88,7 +96,7 @@ spec:
             valuesObject:
               appName: {{ .Values.appName }}
               cluster: kind-dev
-              envName: "{{ "{{" }}.env{{ "}}" }}"
+              envName: "{{ "{{" }}.envName{{ "}}" }}"
             valueFiles:
               # Confirmed live (two real failures getting here, both left as history
               # in this comment since the exact shape of ArgoCD's git-files-generator
@@ -120,7 +128,7 @@ spec:
             exclude: "*"
       destination:
         server: https://kubernetes.default.svc
-        namespace: "app-{{ .Values.appName }}-{{ "{{" }}.env{{ "}}" }}"
+        namespace: "app-{{ .Values.appName }}-{{ "{{" }}.envName{{ "}}" }}"
       syncPolicy:
         automated:
           selfHeal: true
