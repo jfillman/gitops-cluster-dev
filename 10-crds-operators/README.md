@@ -61,20 +61,57 @@ used in `platform_cicd_session_argocd_onboarding`.
   create repos under `jfillman`'s personal account at all - the Secret itself is never
   committed here).
 
-## Built 2026-08-17, `helm template`-verified only, not yet live-synced
+## Built + live-verified end-to-end, 2026-08-17
 
 - **`infisical/`** — Infisical Community Edition, self-hosted, `idp/docs/
-  service-catalog-design.md` Item 8's platform-infrastructure half (the `SecretStore`
-  XRD that provisions per-(app,cluster) isolation on top of this instance doesn't exist
-  yet - separate future work in `idp-service-catalog`). Chart identity (`infisical-standalone`
-  1.10.0, Cloudsmith-hosted) confirmed against the real published index, not the
-  misleading local folder name upstream uses. See the Application's own header for two
-  real findings from tracing the chart's actual templates: `ingress.enabled: false`
-  alone does not skip the bundled ingress-nginx controller (separate `ingress.nginx.enabled`
-  key), and the bundled Postgres/Redis passwords can't be routed through
-  `existingSecret` without breaking the app container's own connection-string env var,
-  which reads `.Values.postgresql.auth.password`/`.Values.redis.auth.password` directly.
-  Requires a manually-created `infisical-secrets` Secret (`AUTH_SECRET`/`ENCRYPTION_KEY`/
-  `SITE_URL`) before first sync - see the Application's header for the exact command.
-  Needs a real ArgoCD sync + pod-health check on `kind-dev` before this note can say
-  "live-verified."
+  service-catalog-design.md` Item 8's platform-infrastructure half. Chart identity
+  (`infisical-standalone` 1.10.0, Cloudsmith-hosted) confirmed against the real
+  published index, not the misleading local folder name upstream uses. Real findings
+  from tracing the chart's actual templates, all in the Application's own header:
+  `ingress.enabled: false` alone doesn't skip the bundled ingress-nginx controller;
+  bundled Postgres/Redis passwords can't be routed through `existingSecret` without
+  breaking the app container's own connection-string env var; `autoBootstrap`'s
+  default `infisical/cli` image tag (`0.41.86`, no arch suffix) crashes on every
+  invocation on this arm64 host with a Go runtime fatal error - its "arm64" manifest
+  entry actually contains amd64 binary content, runs under transparent QEMU
+  emulation, hits a known Go-runtime-under-emulation crash - fixed by pinning the
+  explicit `-arm64`-suffixed tag instead. Requires a manually-created
+  `infisical-secrets` Secret (`AUTH_SECRET`/`ENCRYPTION_KEY`/`SITE_URL`) and an
+  `infisical-bootstrap-credentials` Secret (one-time admin login, consumed once by
+  the bootstrap Job) - see the Application's header for both commands.
+- **`infisical-secretstore-operator/`** — kopf (Python) controller reconciling
+  `InfisicalProject` CRs against Infisical's real REST API (project + machine
+  identity + Universal Auth per (app,cluster) pair) - source in
+  `idp-service-catalog/operators/`. No registry yet - `kind load image-archive`'d
+  directly. Real bugs found live, not caught by any offline check: kopf's
+  `getpass.getuser()` crashes for a bare numeric UID with no `/etc/passwd` entry
+  (fixed with a `USER` env var + `--standalone`); a JWT-claim-decode approach to
+  discovering the Infisical org id doesn't work against real tokens (no such claim
+  exists) - replaced with a one-time-looked-up `INFISICAL_ORG_ID` constant;
+  `imagePullPolicy: Never` needs the image ref's `localhost/` prefix explicitly.
+- **`crossplane/provider-kubernetes-config.yaml`** (new) — `provider-kubernetes` was
+  installed but never configured until the `SecretStore` Composition needed it:
+  Crossplane v2 rejects composing a cluster-scoped native resource
+  (`ClusterSecretStore`) directly from a namespaced XR, same restriction
+  `NodeJSApplication`'s `provider-github` already hit for Cluster-scoped repo
+  resources - same fix, the namespaced `Object` family
+  (`kubernetes.m.crossplane.io`), wrapping the manifest in
+  `spec.forProvider.manifest` instead of composing it directly.
+
+Full chain live-proven on `kind-dev`, not just "resources exist": a real
+`SecretStore` XR → a real Infisical project + environment + machine identity +
+Universal Auth credentials (via `infisical-secretstore-operator`) → a real,
+`Ready: True` `ClusterSecretStore` → a real secret written to Infisical's own API →
+pulled by a real `ExternalSecret` into a real Kubernetes Secret with the correct
+value. Also surfaced a real, pre-existing bug in the already-shipped
+`idp-application` chart's `ExternalSecret` template (`remoteRef.property` set to
+the secret's own name breaks every pull against Infisical's flat key-value secrets -
+fixed, `idp-service-catalog` v0.3.16).
+
+**Not yet built**: wiring `SecretStore` into `ApplicationEnvironment`'s
+auto-provisioning (create-on-first-env-for-a-cluster, reference on later ones) -
+this XRD is standalone-creatable only, same as `SLO` before any Attached-tier
+auto-provisioning existed. Real design discussion happened for this (idempotent
+git-file-write for the "N sibling XRs, one shared resource" problem, `Usage` for
+deletion-safety, both reusing patterns already live in this catalog) but wasn't
+implemented - separate follow-up.
