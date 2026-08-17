@@ -1,7 +1,3 @@
-# Mirrored from idp-service-catalog/operators/infisical-secretstore-operator/crds/ -
-# that's the source of truth, keep both in sync by hand until there's a real
-# build/publish pipeline for this operator (see this directory's application.yaml).
-#
 # InfisicalProject - the CRD this operator reconciles. One per (app, cluster) pair,
 # per service-catalog-design.md Item 8's scope decision - created by the SecretStore
 # XRD's Composition (idp-service-catalog/compositions/secretstore/), never directly by
@@ -60,11 +56,21 @@ spec:
                   type: string
                   maxLength: 64
                   description: >-
-                    Infisical project display name AND the source for its slug
-                    (deterministically slugified, e.g. "checkout-api-kind-dev") -
-                    this catalog's convention is <appName>-<cluster>, but this CRD
-                    itself doesn't know about apps/clusters, only project identity -
-                    that mapping is the SecretStore XRD's job, not this operator's.
+                    Infisical project display name. Also the fallback source for its
+                    slug (slugified) if `slug` below is omitted - but the SecretStore
+                    XRD's Composition always sets `slug` explicitly, to its own XR
+                    name, so the two can't independently drift apart.
+                slug:
+                  type: string
+                  maxLength: 64
+                  pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+                  description: >-
+                    Explicit Infisical project slug. When set, takes priority over
+                    slugifying projectName - the SecretStore XRD's Composition always
+                    sets this, to its own XR name (already DNS-1123-safe by this
+                    catalog's naming convention), so the Composition's rendered
+                    ClusterSecretStore can reference the same deterministic slug
+                    directly with no live lookup back to this resource's status.
                 environmentSlug:
                   type: string
                   default: shared
@@ -87,7 +93,6 @@ spec:
                     InfisicalProject's own namespace) holding the generated Universal
                     Auth clientId/clientSecret - what the SecretStore XRD's
                     ClusterSecretStore authenticates with.
-              additionalProperties: false
             status:
               type: object
               properties:
@@ -106,4 +111,3 @@ spec:
                   type: string
                 credentialsSecretName:
                   type: string
-              additionalProperties: false
