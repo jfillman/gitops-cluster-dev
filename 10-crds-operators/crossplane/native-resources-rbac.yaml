@@ -17,6 +17,13 @@
 # and added sloth.slok.dev for the new PrometheusServiceLevel type Crossplane's
 # controller now composes directly (ConfigMap needed no such grant either way
 # - already covered by Crossplane's own core-API-group role).
+#
+# secrets.idp.io (InfisicalProject) and external-secrets.io (ClusterSecretStore)
+# added for the SecretStore Composition (service-catalog-design.md Item 8) -
+# same gap, same fix: both are composed directly, neither is a Crossplane-owned
+# API type, ESO's own controller RBAC covers ITS OWN reconciliation of
+# ClusterSecretStore objects but not Crossplane's ability to create one in the
+# first place.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -37,4 +44,10 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["sloth.slok.dev"]
     resources: ["prometheusservicelevels", "prometheusservicelevels/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["secrets.idp.io"]
+    resources: ["infisicalprojects", "infisicalprojects/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["external-secrets.io"]
+    resources: ["clustersecretstores", "clustersecretstores/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
