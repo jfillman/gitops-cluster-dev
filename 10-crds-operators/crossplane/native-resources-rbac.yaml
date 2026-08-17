@@ -18,12 +18,18 @@
 # controller now composes directly (ConfigMap needed no such grant either way
 # - already covered by Crossplane's own core-API-group role).
 #
-# secrets.idp.io (InfisicalProject) and external-secrets.io (ClusterSecretStore)
-# added for the SecretStore Composition (service-catalog-design.md Item 8) -
-# same gap, same fix: both are composed directly, neither is a Crossplane-owned
-# API type, ESO's own controller RBAC covers ITS OWN reconciliation of
-# ClusterSecretStore objects but not Crossplane's ability to create one in the
-# first place.
+# secrets.idp.io (InfisicalProject) added for the SecretStore Composition
+# (service-catalog-design.md Item 8) - same gap, same fix: composed directly, not a
+# Crossplane-owned API type. external-secrets.io/ClusterSecretStore is NOT here,
+# deliberately - that Composition wraps it in a provider-kubernetes Object instead
+# of composing it directly (Crossplane v2 rejects composing a cluster-scoped native
+# resource from this namespaced XR) - see
+# 10-crds-operators/crossplane/provider-kubernetes-config.yaml for that RBAC
+# instead. objects.kubernetes.m.crossplane.io itself needs no entry here - it's a
+# Crossplane-provider-installed type, already covered by the package manager's own
+# aggregate-to-crossplane wiring (confirmed live:
+# crossplane:provider:provider-kubernetes-*:aggregate-to-edit already carries that
+# label).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -47,7 +53,4 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["secrets.idp.io"]
     resources: ["infisicalprojects", "infisicalprojects/status"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["external-secrets.io"]
-    resources: ["clustersecretstores", "clustersecretstores/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
