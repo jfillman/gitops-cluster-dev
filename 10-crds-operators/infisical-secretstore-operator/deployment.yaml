@@ -8,12 +8,21 @@
 #
 # INFISICAL_ADMIN_TOKEN comes from infisical-bootstrap-secret's `token` key - the
 # chart's own autoBootstrap Job output (infisical/application.yaml), same namespace,
-# plain secretKeyRef. INFISICAL_ORG_ID is deliberately left unset here: main.py
-# decodes it from the admin token's own JWT claims at startup rather than needing it
-# threaded through separately - see get_org_id()'s header comment for why (avoids
-# depending on the Infisical CLI's unconfirmed Go template field name for the
-# bootstrap response's organization id). Add INFISICAL_ORG_ID here as an override only
-# if that JWT-claim decode turns out not to work once tested against a real token.
+# plain secretKeyRef.
+#
+# INFISICAL_ORG_ID: the JWT-claim decode main.py's get_org_id() tried first does NOT
+# work against a real token - confirmed live, the real instance-admin token's claims
+# are only {authTokenType, iat, identityAccessTokenId, identityId}, no
+# organizationId/orgId. Set explicitly instead, looked up the only way that does
+# work: GET /api/v1/identities/{identityId} (identityId decoded from the same JWT)
+# using the admin token itself, exec'd directly inside the Infisical pod (this
+# cluster's kubectl port-forward to Infisical was stale/broken at the time -
+# returned a generic {"status":200,"message":"ok"} for every path including
+# unauthenticated ones, actively misleading - in-pod exec bypassed it and gave real,
+# distinguishable responses, e.g. a genuine 401 without a token). This value is a
+# stable, one-time platform fact (this cluster's one permanent org, created once by
+# the bootstrap Job) - a committed constant here, not a workaround.
+# 9144c116-d1eb-4cea-bac9-9b5272035ea7 = the "idp" org's real id on kind-dev.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,6 +53,8 @@ spec:
               value: infisical-secretstore-operator
             - name: INFISICAL_API_URL
               value: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
+            - name: INFISICAL_ORG_ID
+              value: "9144c116-d1eb-4cea-bac9-9b5272035ea7"
             - name: INFISICAL_ADMIN_TOKEN
               valueFrom:
                 secretKeyRef:
