@@ -113,6 +113,20 @@ spec:
             organization: idp
             secretDestination:
               namespace: infisical
+            image:
+              # Chart default (0.41.86, no arch suffix) crashes on kind-dev - real
+              # bug in that published image, not our config: its "arm64" manifest
+              # entry actually contains amd64 binary content (confirmed live -
+              # `podman inspect` reports Architecture: arm64, but the crash's own
+              # stack trace names runtime/asm_amd64.s), which then runs under
+              # transparent QEMU emulation and hits a well-known Go-runtime-under-
+              # emulation crash (`fatal error: lfstack.push invalid packing`) on
+              # every single invocation, even `--version` alone - reproduced
+              # directly via podman before ever touching the Job. The explicit
+              # `-arm64`-suffixed tag is genuinely native (confirmed: runs clean,
+              # `bootstrap --help` shows identical flags to what this chart's Job
+              # already passes) - no other chart change needed.
+              tag: "0.43.99-arm64"
         ingress:
           enabled: false
           nginx:
