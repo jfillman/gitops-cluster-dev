@@ -86,11 +86,14 @@ spec:
         # operator-owned valuesObject - identity/placement only, same
         # helm.valuesObject-beats-helm.valueFiles precedence property
         # tenant-onboarding/applicationset.yaml already relies on (live-attack-tested
-        # elsewhere in this project). v0.1.0 pin matches tenant-onboarding's own pin
-        # exactly - confirmed byte-identical to the latest tag (v0.3.5) for this
-        # chart, so no version skew introduced by not tracking latest.
+        # elsewhere in this project). Pin matches tenant-onboarding/applicationset.yaml's
+        # own pin exactly - bumped together, same reasoning both times: no version
+        # skew introduced between the two consumers of this chart. Was v0.1.0 for a
+        # long stretch (confirmed byte-identical through v0.3.5); bumped to v0.3.9 for
+        # the real registryCredentials fix (private-registry pull 401 hit live on
+        # checkout-api's dev Rollout).
         - repoURL: {{ .Values.idpServiceCatalogRepoUrl }}
-          targetRevision: v0.1.0
+          targetRevision: v0.3.9
           path: charts/idp-application
           helm:
             valuesObject:
