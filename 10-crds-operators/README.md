@@ -60,3 +60,21 @@ used in `platform_cicd_session_argocd_onboarding`.
   outright), and a PAT, not `platform-cicd`'s existing GitHub App (GitHub Apps can't
   create repos under `jfillman`'s personal account at all - the Secret itself is never
   committed here).
+
+## Built 2026-08-17, `helm template`-verified only, not yet live-synced
+
+- **`infisical/`** — Infisical Community Edition, self-hosted, `idp/docs/
+  service-catalog-design.md` Item 8's platform-infrastructure half (the `SecretStore`
+  XRD that provisions per-(app,cluster) isolation on top of this instance doesn't exist
+  yet - separate future work in `idp-service-catalog`). Chart identity (`infisical-standalone`
+  1.10.0, Cloudsmith-hosted) confirmed against the real published index, not the
+  misleading local folder name upstream uses. See the Application's own header for two
+  real findings from tracing the chart's actual templates: `ingress.enabled: false`
+  alone does not skip the bundled ingress-nginx controller (separate `ingress.nginx.enabled`
+  key), and the bundled Postgres/Redis passwords can't be routed through
+  `existingSecret` without breaking the app container's own connection-string env var,
+  which reads `.Values.postgresql.auth.password`/`.Values.redis.auth.password` directly.
+  Requires a manually-created `infisical-secrets` Secret (`AUTH_SECRET`/`ENCRYPTION_KEY`/
+  `SITE_URL`) before first sync - see the Application's header for the exact command.
+  Needs a real ArgoCD sync + pod-health check on `kind-dev` before this note can say
+  "live-verified."

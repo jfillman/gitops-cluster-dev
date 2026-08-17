@@ -1,0 +1,101 @@
+# Infisical Community Edition, self-hosted - idp/docs/service-catalog-design.md Item 8:
+# "Infisical itself... is shared platform infrastructure, not a service-catalog item -
+# installed once, cluster-admin-owned, in idp-cluster-baseline's 10-crds-operators/
+# group alongside ESO's own controller." This Application is that install. It does NOT
+# create any per-app project/isolation - that's the not-yet-built SecretStore XRD's job
+# (idp-service-catalog), which configures Infisical's API against this instance.
+#
+# Chart identity confirmed live, not guessed (the repo's own folder name,
+# infisical-standalone-postgres, does not match what's actually published - verified via
+# the real Cloudsmith index.yaml): repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/,
+# chart `infisical-standalone` (bundles Bitnami postgresql 14.1.10 + redis 18.14.1 as
+# dependency subcharts - the upstream-documented "testing/POC" deployment path, not the
+# HA path, matching this being a kind-dev, not a licensed-enterprise, install).
+#
+# infisical.replicaCount: 1 - chart default is 2 for HA; kind-dev is a single node, so a
+# second replica buys no real redundancy, just idle resource cost.
+#
+# ingress.enabled: false AND ingress.nginx.enabled: false (two separate keys - confirmed
+# live via `helm template` that enabled:false alone still installs the entire bundled
+# ingress-nginx subchart, gated by its own `condition: ingress.nginx.enabled`, not
+# `ingress.enabled`). Skipped for now: nothing in the SecretStore XRD's design needs the
+# web UI reachable from outside (ESO and the future SecretStore XRD both talk to
+# Infisical's API via its in-cluster ClusterIP Service); use `kubectl port-forward` for
+# UI access until there's a real reason to expose it - avoids standing up a second,
+# redundant ingress controller next to Contour (already this cluster's real one) for a
+# component that doesn't need one yet.
+#
+# postgresql.auth.password / redis.auth.password: traced through this chart's own
+# templates/_helpers.tpl (infisical.postgresDBConnectionString / redisConnectionString) -
+# both read .Values.postgresql.auth.password / .Values.redis.auth.password directly to
+# build DB_CONNECTION_URI/REDIS_URL as plaintext `env.value`, not a secretKeyRef. Setting
+# postgresql.auth.existingSecret instead (the usual Bitnami-chart way to avoid this) does
+# NOT work here - it only changes what password the bundled Postgres StatefulSet itself
+# is initialized with, while the Infisical app container would still read the separate,
+# un-overridden .Values.postgresql.auth.password to build its connection string,
+# authenticating with the wrong credential. The only real way to route these through a
+# pre-created Secret is postgresql.useExistingPostgresSecret (a fully external, BYO
+# Postgres - out of scope for a first kind-dev pass, no such instance exists yet).
+# Accepted tradeoff, not an oversight, and flagged rather than hidden: the values below
+# ARE plaintext in this committed file, unlike every other credential in this platform.
+# Generated with `openssl rand -hex 20` (better than the chart's own literal shipped
+# defaults, "root" / "mysecretpassword", but still committed in the clear) because this
+# specific chart structurally requires it - see above. Scoped acceptable because these
+# protect ClusterIP-only Postgres/Redis instances with zero external exposure and zero
+# reuse anywhere else, not because plaintext-in-git is fine in general. Real fix, once it
+# exists: point Infisical at an externally-provisioned Postgres/Redis (e.g. a future
+# `Database`/`Redis` Attached-tier XRD, service-catalog-design.md Item 7) via
+# `postgresql.useExistingPostgresSecret` instead of the bundled dependency subcharts.
+#
+# infisical.kubeSecretRef stays at the chart's own default, "infisical-secrets" - NOT
+# created by this Application. Same "user creates it by hand, never pasted to an
+# assistant" convention platform-cicd's secretStore.sourceNamespace already established
+# (docs/secrets-management.md) - this Secret holds AUTH_SECRET/ENCRYPTION_KEY/SITE_URL,
+# the actual keys to every secret Infisical will ever hold, a different risk class than
+# the internal DB/Redis passwords above. Create it before this Application first
+# syncs successfully:
+#   kubectl create namespace infisical
+#   kubectl create secret generic infisical-secrets -n infisical \
+#     --from-literal=ENCRYPTION_KEY="$(openssl rand -hex 16)" \
+#     --from-literal=AUTH_SECRET="$(openssl rand -base64 32)" \
+#     --from-literal=SITE_URL="http://localhost:8080"
+# (ENCRYPTION_KEY must be exactly 32 hex chars / 16 bytes - confirmed against Infisical's
+# own .env.example, which documents this shape, not guessed.)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infisical
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  project: default
+  source:
+    repoURL: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
+    chart: infisical-standalone
+    targetRevision: 1.10.0
+    helm:
+      releaseName: infisical
+      valuesObject:
+        infisical:
+          replicaCount: 1
+          kubeSecretRef: infisical-secrets
+        ingress:
+          enabled: false
+          nginx:
+            enabled: false
+        postgresql:
+          enabled: true
+          auth:
+            password: "900bf58b4c14266d11822042e216111e8eb43462"
+        redis:
+          enabled: true
+          auth:
+            password: "8826860cb27b98aa9e3935b852333f62b05f1ecd"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: infisical
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
