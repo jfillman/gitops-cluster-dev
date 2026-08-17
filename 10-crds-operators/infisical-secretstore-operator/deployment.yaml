@@ -36,6 +36,12 @@ spec:
           image: localhost/infisical-secretstore-operator:dev
           imagePullPolicy: Never
           env:
+            # kopf's own peering-identity detection calls Python's getpass.getuser(),
+            # which crashes (OSError: No username set in the environment) when running
+            # as a bare numeric UID with no /etc/passwd entry - confirmed live. USER
+            # satisfies getpass without needing an image change or a passwd entry.
+            - name: USER
+              value: infisical-secretstore-operator
             - name: INFISICAL_API_URL
               value: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
             - name: INFISICAL_ADMIN_TOKEN
