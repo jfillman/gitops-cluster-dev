@@ -61,6 +61,33 @@
 #     --from-literal=SITE_URL="http://localhost:8080"
 # (ENCRYPTION_KEY must be exactly 32 hex chars / 16 bytes - confirmed against Infisical's
 # own .env.example, which documents this shape, not guessed.)
+#
+# infisical.autoBootstrap: enabled for infisical-secretstore-operator's benefit (the
+# new operator in this same directory) - it needs an instance-admin machine-identity
+# token to call Infisical's API, and this chart's own post-install Job is the
+# declarative, one-shot way to mint one (infisical bootstrap CLI under the hood).
+# `--ignore-if-bootstrapped=true` (chart default, unconditional) makes this safe to
+# leave enabled permanently - a no-op Job on every sync after the first.
+# organization: "idp" overrides the chart default "default-org" - traced through
+# templates/bootstrap-job.yaml: --organization is a CLI flag templated from THIS
+# values field, not read from the credential Secret's own
+# INFISICAL_ADMIN_ORGANIZATION env var (that env var is effectively unused by this
+# specific Job) - set here so the real org name is controlled declaratively, matching
+# what the credential-secret creation instructions below already say.
+# secretDestination.namespace: "infisical" overrides the chart's literal default
+# value "default" (not auto-derived from the release namespace despite the
+# values.yaml comment implying so for an empty string - the shipped default is a
+# non-empty literal) - without this override the bootstrap secret would land in the
+# cluster's actual `default` namespace, not here.
+#
+# Requires a second, one-time manually-created Secret before this can actually run
+# (same "never pasted to an assistant" convention as infisical-secrets above):
+#   kubectl create secret generic infisical-bootstrap-credentials -n infisical \
+#     --from-literal=INFISICAL_ADMIN_EMAIL="platform-admin@idp.local" \
+#     --from-literal=INFISICAL_ADMIN_PASSWORD="$(openssl rand -base64 24)" \
+#     --from-literal=INFISICAL_ADMIN_ORGANIZATION="idp"
+# (INFISICAL_ADMIN_ORGANIZATION is set here for completeness/CLI-flag-alternative
+# safety even though this Job's own --organization flag wins - see above.)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -81,6 +108,11 @@ spec:
         infisical:
           replicaCount: 1
           kubeSecretRef: infisical-secrets
+          autoBootstrap:
+            enabled: true
+            organization: idp
+            secretDestination:
+              namespace: infisical
         ingress:
           enabled: false
           nginx:

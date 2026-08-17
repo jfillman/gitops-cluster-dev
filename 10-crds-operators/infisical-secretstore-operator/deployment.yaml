@@ -1,0 +1,54 @@
+# imagePullPolicy: Never - the image isn't in a registry yet, it's `kind load
+# image-archive`'d directly into kind-dev's containerd (see application.yaml's
+# header). Would need to change to a real pull policy once a registry pipeline
+# exists.
+#
+# INFISICAL_ADMIN_TOKEN comes from infisical-bootstrap-secret's `token` key - the
+# chart's own autoBootstrap Job output (infisical/application.yaml), same namespace,
+# plain secretKeyRef. INFISICAL_ORG_ID is deliberately left unset here: main.py
+# decodes it from the admin token's own JWT claims at startup rather than needing it
+# threaded through separately - see get_org_id()'s header comment for why (avoids
+# depending on the Infisical CLI's unconfirmed Go template field name for the
+# bootstrap response's organization id). Add INFISICAL_ORG_ID here as an override only
+# if that JWT-claim decode turns out not to work once tested against a real token.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infisical-secretstore-operator
+  labels:
+    app: infisical-secretstore-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infisical-secretstore-operator
+  template:
+    metadata:
+      labels:
+        app: infisical-secretstore-operator
+    spec:
+      serviceAccountName: infisical-secretstore-operator
+      containers:
+        - name: operator
+          image: infisical-secretstore-operator:dev
+          imagePullPolicy: Never
+          env:
+            - name: INFISICAL_API_URL
+              value: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
+            - name: INFISICAL_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-bootstrap-secret
+                  key: token
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
