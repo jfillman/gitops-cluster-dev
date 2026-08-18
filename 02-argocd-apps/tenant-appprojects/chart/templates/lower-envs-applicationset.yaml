@@ -97,9 +97,15 @@ spec:
         # moved to NodeJSApplication/ApplicationEnvironment's own xr-requests
         # commits instead - idp/docs/service-catalog-design.md Item 8's third
         # revision) and fixes external-secret.yaml to actually route through the
-        # per-environment stores.
+        # per-environment stores. v0.3.19 fixes a second, real live bug in the same
+        # file: a shared secret on kind-dev still got a "shared/" path prefix even
+        # though "shared" is the Infisical ENVIRONMENT's own name now (already
+        # selected by the store), not a folder - confirmed live via
+        # app-checkout-api-dev's real ExternalSecret (SecretSyncedError) and the
+        # real Infisical API (both test secrets live at secretPath "/", no "shared"
+        # folder exists).
         - repoURL: {{ .Values.idpServiceCatalogRepoUrl }}
-          targetRevision: v0.3.18
+          targetRevision: v0.3.19
           path: charts/idp-application
           helm:
             valuesObject:
