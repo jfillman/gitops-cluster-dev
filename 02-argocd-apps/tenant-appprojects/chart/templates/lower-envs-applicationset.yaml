@@ -91,9 +91,11 @@ spec:
         # skew introduced between the two consumers of this chart. Was v0.1.0 for a
         # long stretch (confirmed byte-identical through v0.3.5); bumped to v0.3.9 for
         # the real registryCredentials fix (private-registry pull 401 hit live on
-        # checkout-api's dev Rollout).
+        # checkout-api's dev Rollout); bumped to v0.3.17 for the always-on
+        # attached/secretstore.yaml resource (Item 8's multi-cluster revision) -
+        # every env release now also auto-provisions its own SecretStore chain.
         - repoURL: {{ .Values.idpServiceCatalogRepoUrl }}
-          targetRevision: v0.3.9
+          targetRevision: v0.3.17
           path: charts/idp-application
           helm:
             valuesObject:
