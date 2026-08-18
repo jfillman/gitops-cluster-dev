@@ -17,10 +17,10 @@ metadata:
   name: infisical-secretstore-operator
 rules:
   - apiGroups: ["secrets.idp.io"]
-    resources: ["infisicalprojects"]
+    resources: ["infisicalprojects", "infisicalenvironments"]
     verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: ["secrets.idp.io"]
-    resources: ["infisicalprojects/status"]
+    resources: ["infisicalprojects/status", "infisicalenvironments/status"]
     verbs: ["get", "patch", "update"]
   - apiGroups: [""]
     resources: ["secrets"]

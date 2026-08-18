@@ -108,6 +108,17 @@ spec:
         infisical:
           replicaCount: 1
           kubeSecretRef: infisical-secrets
+          extraEnv:
+            # Required for infisical-secretstore-operator's Kubernetes Auth config
+            # (main.py's configure_kubernetes_auth()) to work at all - confirmed
+            # live: Infisical's backend rejects kubernetesHost with a real "Local IPs
+            # not allowed as URL" 400 otherwise, an SSRF guard that has no exception
+            # for "this is a self-hosted instance and the target IS the same
+            # cluster's own API server, on purpose." Documented, not guessed
+            # (infisical-self-host skill's environment-variables reference,
+            # ALLOW_INTERNAL_IP_CONNECTIONS, default false, "useful for Kubernetes").
+            - name: ALLOW_INTERNAL_IP_CONNECTIONS
+              value: "true"
           autoBootstrap:
             enabled: true
             organization: idp
