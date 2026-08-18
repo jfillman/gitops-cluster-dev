@@ -34,7 +34,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/jfillman/idp-service-catalog.git
-    targetRevision: v0.3.20
+    targetRevision: v0.3.21
     path: .
     directory:
       recurse: true

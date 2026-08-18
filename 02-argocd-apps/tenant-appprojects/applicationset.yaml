@@ -1,9 +1,23 @@
 # One per-app AppProject (gitops-strategy.md §6), generated from
-# gitops-cluster-dev-tenants/tenants/<app>/app.yaml - deliberately the COARSER of the
-# two tenant-onboarding ApplicationSets (one entry per app, not per app+env), since an
-# app's AppProject is shared across every env it has on this cluster; generating it from
-# the finer-grained per-env identity.yaml files instead would produce N conflicting
-# ApplicationSet entries all trying to own the same AppProject name.
+# gitops-cluster-dev-tenants/tenants/<app>/identity.yaml - deliberately the COARSER of
+# the two tenant-onboarding ApplicationSets (one entry per app, not per app+env), since
+# an app's AppProject is shared across every env it has on this cluster; generating it
+# from the finer-grained per-env <app>/<env>/identity.yaml files instead would produce N
+# conflicting ApplicationSet entries all trying to own the same AppProject name.
+#
+# Reads tenants/*/identity.yaml, not tenants/*/app.yaml (changed 2026-08-18) - this
+# ApplicationSet used to be the one consumer of a separate app.yaml file that sat right
+# next to identity.yaml in the same tenant directory, "almost identical, one a subset of
+# the other." Consolidated onto the one file platform-cicd's own tenant-onboarding
+# ApplicationSet already reads (charts/platform-cicd-control-plane/templates/argocd/
+# tenant-onboarding-applicationset.yaml in platform-cicd.git) - both ApplicationSets now
+# key off the SAME tenants/<app>/identity.yaml commit, nested under platformIdentity:,
+# instead of two near-duplicate files with subtly different field sets AND (until this
+# same change) different URL conventions. See idp-service-catalog's
+# compositions/nodejsapplication/templates/render-github-resources/
+# cicd-identity-yaml.yaml for the full history, including the real PaC-matching bug
+# that made a naive merge unsafe until gitopsRepoUrl/appRepoUrl dropped their .git
+# suffix everywhere, not just here.
 #
 # ApplicationSet can only generate Application objects, not arbitrary resource kinds -
 # there's no native "AppProjectSet" generator. The workaround here (same shape used
@@ -61,16 +75,16 @@ spec:
         repoURL: https://github.com/jfillman/gitops-cluster-dev-tenants.git
         revision: main
         files:
-          - path: "tenants/*/app.yaml"
+          - path: "tenants/*/identity.yaml"
   template:
     metadata:
-      name: "{{.appName}}-onboarding"
+      name: "{{.platformIdentity.appName}}-onboarding"
       labels:
         platform.io/component: cluster-config
         platform.io/subcomponent: tenant-onboarding
-        platform.io/app: "{{.appName}}"
-      # Cascade-deletes the AppProject if a tenant's app.yaml is ever removed - same
-      # finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
+        platform.io/app: "{{.platformIdentity.appName}}"
+      # Cascade-deletes the AppProject if a tenant's identity.yaml is ever removed -
+      # same finalizer/reasoning as platform-cicd's own tenant-onboarding-applicationset.yaml.
       finalizers:
         - resources-finalizer.argocd.argoproj.io
       namespace: argocd-apps
@@ -82,9 +96,9 @@ spec:
         path: 02-argocd-apps/tenant-appprojects/chart
         helm:
           valuesObject:
-            appName: "{{.appName}}"
-            gitopsRepoUrl: "{{.gitopsRepoUrl}}"
-            appRepoUrl: "{{.appRepoUrl}}"
+            appName: "{{.platformIdentity.appName}}"
+            gitopsRepoUrl: "{{.platformIdentity.gitopsRepoUrl}}"
+            appRepoUrl: "{{.platformIdentity.appRepoUrl}}"
             idpServiceCatalogRepoUrl: "https://github.com/jfillman/idp-service-catalog.git"
       destination:
         server: https://kubernetes.default.svc
