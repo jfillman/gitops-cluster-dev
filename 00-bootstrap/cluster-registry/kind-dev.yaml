@@ -1,6 +1,3 @@
-# Not gated on by anything yet (NodeJSApplication.spec.devCluster doesn't exist yet -
-# out of scope for this pass, see idp_session_multicluster_architecture memory).
-#
 # cicdReady flipped to "true" 2026-08-16: platform-cicd's control plane is now
 # GitOps-managed on kind-dev (gitops-cluster-dev/50-platform-cicd/ - tektoncd/operator +
 # platform-cicd-catalog + platform-cicd-control-plane, all ArgoCD Applications, replacing
@@ -12,6 +9,26 @@
 # https://kubernetes.io/namespaces/tekton-pipelines/serviceaccounts/tekton-chains-controller
 # - confirmed by decoding the actual certificate, not just the chains.tekton.dev/signed
 # annotation), all torn down after.
+#
+# NodeJSApplication.spec.devCluster (now real, required) gates on this entry -
+# type: dev + cicdReady: "true", same ExtraResources matchName lookup pattern
+# ApplicationEnvironment's own gate already uses for type: upper + crossplaneReady.
+#
+# infisicalHost: "true" (2026-08-18) - which ONE cluster in the fleet physically runs
+# Infisical. NOT the same predicate as type: dev - idp/docs/service-catalog-design.md
+# Item 8 deliberately keeps a single shared Infisical instance rather than one per dev
+# cluster (the "second Infisical instance per cluster" option was weighed and rejected
+# for the extra live infra cost). A second dev cluster is still type: dev but must use
+# Universal Auth like an upper cluster, not local Kubernetes Auth - only this field
+# disambiguates that. Read by compositions/secretstore's own ExtraResources lookup
+# (replacing what used to be a plain `eq $spec.cluster "kind-dev"` string compare).
+#
+# tenantsRepo: gitops-cluster-dev-tenants (2026-08-18) - this cluster's tenants repo is
+# a legacy name that breaks the gitops-cluster-<cluster>-tenants convention every upper
+# cluster uses (renaming the real, live repo was out of scope - too disruptive to
+# already-wired ArgoCD Applications). Recorded here as data so NodeJSApplication's
+# Composition (and a future second dev cluster, which CAN follow the clean convention)
+# read it live instead of hardcoding the exception in code.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,3 +39,5 @@ metadata:
 data:
   type: dev
   cicdReady: "true"
+  infisicalHost: "true"
+  tenantsRepo: gitops-cluster-dev-tenants
