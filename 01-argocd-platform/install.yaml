@@ -31261,6 +31261,206 @@ data:
       - BackgroundScanReport
       - ClusterBackgroundScanReport
       - UpdateRequest
+  # Argo Rollouts health check - not bundled with ArgoCD core (separate project), so
+  # Rollout/BlueGreen/Canary stalls otherwise show as bare Progressing forever. Vendored
+  # verbatim from argo-cd's own resource_customizations/argoproj.io/Rollout/health.lua
+  # (master branch, fetched 2026-08-18) rather than hand-rolled.
+  resource.customizations.health.argoproj.io_Rollout: |
+    function checkReplicasStatus(obj)
+      local hs = {}
+      local desiredReplicas = getNumberValueOrDefault(obj.spec.replicas, 1)
+      statusReplicas = getNumberValueOrDefault(obj.status.replicas, 0)
+      updatedReplicas = getNumberValueOrDefault(obj.status.updatedReplicas, 0)
+      local availableReplicas = getNumberValueOrDefault(obj.status.availableReplicas, 0)
+
+      if updatedReplicas < desiredReplicas then
+        hs.status = "Progressing"
+        hs.message = "Waiting for roll out to finish: More replicas need to be updated"
+        return hs
+      end
+      if availableReplicas < updatedReplicas then
+        hs.status = "Progressing"
+        hs.message = "Waiting for roll out to finish: updated replicas are still becoming available"
+        return hs
+      end
+      return nil
+    end
+
+    function getStableRS(obj)
+      if obj.status.stableRS ~= nil then
+        return obj.status.stableRS
+      end
+      if obj.status.canary ~= nil then
+          return obj.status.canary.stableRS
+      end
+      return ""
+    end
+
+    function getNumberValueOrDefault(field, default)
+      if field ~= nil then
+        return field
+      end
+      return default
+    end
+
+    function checkPaused(obj)
+      local hs = {}
+      hs.status = "Suspended"
+      hs.message = "Rollout is paused"
+      if obj.status.pauseConditions ~= nil and table.getn(obj.status.pauseConditions) > 0 then
+        return hs
+      end
+
+      if obj.spec.paused ~= nil and obj.spec.paused then
+        return hs
+      end
+      return nil
+    end
+
+    function isGenerationObserved(obj)
+      if obj.status == nil then
+        return false
+      end
+      observedGeneration = tonumber(obj.status.observedGeneration)
+      if observedGeneration == nil or observedGeneration > obj.metadata.generation then
+        return true
+      end
+      return observedGeneration == obj.metadata.generation
+    end
+
+    function isWorkloadGenerationObserved(obj)
+      if obj.spec.workloadRef == nil or obj.metadata.annotations == nil then
+        return true
+      end
+      local workloadGen = tonumber(obj.metadata.annotations["rollout.argoproj.io/workload-generation"])
+      local observedWorkloadGen = tonumber(obj.status.workloadObservedGeneration)
+      return workloadGen == observedWorkloadGen
+    end
+
+    local hs = {}
+    if not isGenerationObserved(obj) or not isWorkloadGenerationObserved(obj) then
+      hs.status = "Progressing"
+      hs.message = "Waiting for rollout spec update to be observed"
+      return hs
+    end
+
+    if obj.status.phase ~= nil then
+      if obj.status.phase == "Paused" then
+        hs.status = "Suspended"
+      else
+        hs.status = obj.status.phase
+      end
+      hs.message = obj.status.message
+      return hs
+    end
+
+    for _, condition in ipairs(obj.status.conditions) do
+      if condition.type == "InvalidSpec" then
+        hs.status = "Degraded"
+        hs.message = condition.message
+        return hs
+      end
+      if condition.type == "Progressing" and condition.reason == "RolloutAborted" then
+        hs.status = "Degraded"
+        hs.message = condition.message
+        return hs
+      end
+      if condition.type == "Progressing" and condition.reason == "ProgressDeadlineExceeded" then
+        hs.status = "Degraded"
+        hs.message = condition.message
+        return hs
+      end
+    end
+
+    local isPaused = checkPaused(obj)
+    if isPaused ~= nil then
+      return isPaused
+    end
+
+    if obj.status.currentPodHash == nil then
+      hs.status = "Progressing"
+      hs.message = "Waiting for rollout to finish: status has not been reconciled."
+      return hs
+    end
+
+    replicasHS = checkReplicasStatus(obj)
+    if replicasHS ~= nil then
+      return replicasHS
+    end
+
+    local stableRS = getStableRS(obj)
+
+    if obj.spec.strategy.blueGreen ~= nil then
+      if obj.status.blueGreen == nil or obj.status.blueGreen.activeSelector ~= obj.status.currentPodHash then
+        hs.status = "Progressing"
+        hs.message = "active service cutover pending"
+        return hs
+      end
+      if stableRS ~= "" and stableRS ~= obj.status.currentPodHash then
+        hs.status = "Progressing"
+        hs.message = "waiting for analysis to complete"
+        return hs
+      end
+    elseif obj.spec.strategy.canary ~= nil then
+      if statusReplicas > updatedReplicas then
+        hs.status = "Progressing"
+        hs.message = "Waiting for roll out to finish: old replicas are pending termination"
+        return hs
+      end
+      if stableRS == "" or stableRS ~= obj.status.currentPodHash then
+        hs.status = "Progressing"
+        hs.message = "Waiting for rollout to finish steps"
+        return hs
+      end
+    end
+
+    hs.status = "Healthy"
+    hs.message = ""
+    return hs
+  # Crossplane XR/Claim health - every idp-service-catalog XRD (catalog.idp.io/*, see
+  # idp-service-catalog/xrds/) exposes the standard Crossplane Synced/Ready conditions;
+  # ArgoCD has no built-in notion of them, so composites otherwise sit at "Unknown"
+  # forever. Bulk wildcard form (not the per-key resource.customizations.health.<group>_
+  # <kind> style, which can't glob) so new XRD kinds added later are covered without
+  # another argocd-cm edit. Scoped to catalog.idp.io specifically, not a generic
+  # crossplane.io wildcard - this cluster's XRDs are the only composites ArgoCD is
+  # expected to render health for today.
+  resource.customizations: |
+    catalog.idp.io/*:
+      health.lua: |
+        health_status = {}
+        if obj.status == nil or obj.status.conditions == nil then
+          health_status.status = "Progressing"
+          health_status.message = "Waiting for status.conditions to be reported"
+          return health_status
+        end
+        local synced = nil
+        local ready = nil
+        for _, condition in ipairs(obj.status.conditions) do
+          if condition.type == "Synced" then
+            synced = condition
+          elseif condition.type == "Ready" then
+            ready = condition
+          end
+        end
+        if synced ~= nil and synced.status == "False" then
+          health_status.status = "Degraded"
+          health_status.message = synced.message or synced.reason or "Not synced"
+          return health_status
+        end
+        if ready ~= nil then
+          if ready.status == "True" then
+            health_status.status = "Healthy"
+            health_status.message = ready.message or ready.reason or "Ready"
+          else
+            health_status.status = "Progressing"
+            health_status.message = ready.message or ready.reason or "Not ready"
+          end
+          return health_status
+        end
+        health_status.status = "Progressing"
+        health_status.message = "No Ready condition yet"
+        return health_status
 kind: ConfigMap
 metadata:
   labels:
