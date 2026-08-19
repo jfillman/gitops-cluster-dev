@@ -69,10 +69,9 @@ clusterName: kind-dev
 # straight into gitops-cluster-dev-tenants instead (idp-service-catalog v0.3.5+).
 tenantsRepoUrl: https://github.com/jfillman/gitops-cluster-dev-tenants.git
 
-# See platform-cicd's charts/platform-cicd-control-plane/templates/broker/interceptor.yaml
-# own header comment - a truly fresh cluster needs hack/bootstrap.sh's --create-namespace
-# instead of the chart's own Namespace resource, since Helm can't reconcile both for the
-# same namespace.
+# selfManageNamespace: false since this Application's own CreateNamespace=true
+# syncOption already owns namespace creation - see platform-cicd's
+# templates/broker/interceptor.yaml own header comment for why the two can't coexist.
 selfManageNamespace: false
 
 # tektonChainsNamespace: kind-dev runs Tekton via tektoncd/operator
@@ -85,3 +84,20 @@ selfManageNamespace: false
 # build. Also set in ../platform-cicd-catalog/application.yaml - same value, two
 # charts, kept in sync deliberately.
 tektonChainsNamespace: tekton-pipelines
+
+# Real onboarded Applications' secret stores - moved here from platform-cicd's own
+# chart defaults (cluster state, not chart source - see that chart's values.yaml).
+appSecretStores:
+  - type: app
+    appName: checkout-api
+
+# Real registered upper clusters - same reasoning, moved from chart defaults. kind-prod
+# is checkout-api's real upper-env cluster (idp-service-catalog's
+# ApplicationEnvironment.spec.cluster). outcomeRelayURL's IP is dev-control-plane's own
+# address on the shared podman `kind` bridge network (`podman inspect dev-control-plane`
+# - re-check if the dev cluster is ever recreated, podman does not guarantee the same IP
+# survives that; see docs/admin/multi-cluster.md's cross-cluster-reachability section).
+clusters:
+  - name: kind-prod
+    relaySecretName: cluster-kind-prod-relay-token
+    outcomeRelayURL: http://10.89.0.2:30880/outcome/kind-prod

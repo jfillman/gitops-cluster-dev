@@ -1,13 +1,12 @@
-# Same chart, same source (git HEAD, not a version-pinned tag - matches how
-# hack/bootstrap.sh already installs it, and how tenant-onboarding-applicationset.yaml's
-# own source 0 already tracks platformCicdRepoUrl at `main`) `hack/bootstrap.sh` installs
-# imperatively for kind-observe - this is the same install, made declarative for kind-dev.
+# Git HEAD source (not a version-pinned tag) - matches how
+# tenant-onboarding-applicationset.yaml's own source 0 already tracks
+# platformCicdRepoUrl at `main`.
 #
 # tektonChainsNamespace: tekton-pipelines - must match tekton-operator/tektonconfig.yaml's
 # own spec.targetNamespace exactly, or verify-image-provenance.yaml/
 # verify-sast-attestation.yaml's cosign identity-regexp check fails every real build (see
-# tekton-operator/README.md). Set here AND in hack/values-kind-dev.yaml (consumed by
-# platform-cicd-control-plane below) - same value, two charts, kept in sync deliberately.
+# tekton-operator/README.md). Set here AND in platform-cicd-control-plane/
+# values-kind-dev.yaml - same value, two charts, kept in sync deliberately.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

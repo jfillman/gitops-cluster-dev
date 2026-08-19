@@ -1,6 +1,3 @@
-# Same chart, same source (git HEAD) hack/bootstrap.sh installs imperatively for
-# kind-observe - this Application makes kind-dev's install declarative instead.
-#
 # Multi-source, not a plain valueFiles path into platform-cicd.git: kind-dev's per-
 # cluster values (Fulcio material, clusterName, tektonChainsNamespace) are cluster
 # state, not application source, so they live in THIS repo
@@ -28,6 +25,11 @@ spec:
       path: charts/platform-cicd-control-plane
       helm:
         releaseName: platform-cicd-control-plane
+        valuesObject:
+          # Must match this source's own repoURL above - the chart derives its GitHub
+          # owner from this (see _helpers.tpl's githubOwner helper), required now that
+          # the chart no longer hardcodes a default org.
+          platformCicdRepoUrl: https://github.com/jfillman/platform-cicd.git
         valueFiles:
           # $-ref resolves relative to that source's checkout ROOT.
           - $clustercfg/50-platform-cicd/platform-cicd-control-plane/values-kind-dev.yaml
