@@ -1,15 +1,17 @@
 # Same chart, same source (git HEAD) hack/bootstrap.sh installs imperatively for
-# kind-observe and, until now, kind-dev too - this Application makes kind-dev's install
-# declarative, replacing that imperative CONTEXT=kind-dev invocation.
+# kind-observe - this Application makes kind-dev's install declarative instead.
 #
-# valueFiles points at hack/values-kind-dev.yaml, the SAME file hack/
-# generate-cluster-values.sh produces and hack/bootstrap.sh auto-discovers - one
-# canonical source of truth for kind-dev's per-cluster values (clusterName-derived
-# tenantsRepoUrl/tenantOnboardingApplicationSetName, Fulcio material, tektonChainsNamespace),
-# not duplicated into this Application manifest. Path is relative to this source's own
-# chart path (charts/platform-cicd-control-plane), resolving up to the repo root's hack/
-# dir - same repo, same git checkout, no cross-source $ref needed since both the chart
-# and the values file live in platform-cicd.git.
+# Multi-source, not a plain valueFiles path into platform-cicd.git: kind-dev's per-
+# cluster values (Fulcio material, clusterName, tektonChainsNamespace) are cluster
+# state, not application source, so they live in THIS repo
+# (values-kind-dev.yaml, next to this Application) rather than reaching into
+# platform-cicd's own hack/ dir - platform-cicd stays installable standalone, with zero
+# cluster-specific state committed to it. Same $ref pattern this chart's own
+# tenant-onboarding-applicationset.yaml template already uses for each tenant's
+# cicd.yaml (platform-cicd/charts/platform-cicd-control-plane/templates/argocd/
+# tenant-onboarding-applicationset.yaml) - proven live, reused here rather than
+# invented fresh. hack/generate-cluster-values.sh writes values-kind-dev.yaml
+# straight into this directory now (see its own header) - hack/'s copy is retired.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -20,14 +22,22 @@ metadata:
     platform.io/subcomponent: platform-cicd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/jfillman/platform-cicd.git
-    targetRevision: main
-    path: charts/platform-cicd-control-plane
-    helm:
-      releaseName: platform-cicd-control-plane
-      valueFiles:
-        - ../../hack/values-kind-dev.yaml
+  sources:
+    - repoURL: https://github.com/jfillman/platform-cicd.git
+      targetRevision: main
+      path: charts/platform-cicd-control-plane
+      helm:
+        releaseName: platform-cicd-control-plane
+        valueFiles:
+          # $-ref resolves relative to that source's checkout ROOT.
+          - $clustercfg/50-platform-cicd/platform-cicd-control-plane/values-kind-dev.yaml
+    - repoURL: https://github.com/jfillman/gitops-cluster-dev.git
+      targetRevision: main
+      ref: clustercfg
+      # Exists only to be $ref'd above - without this, ArgoCD's directory-source
+      # auto-detection would try to apply every *.yaml in this repo as a raw manifest.
+      directory:
+        exclude: "*"
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-system

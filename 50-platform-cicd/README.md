@@ -25,10 +25,11 @@ wrong by the time `kind-dev`'s instance existed and is corrected as of this rewr
   bundled-but-unwanted, PAC support confirmed on plain Kubernetes).
 - `platform-cicd-catalog/` - Helm chart Application, same source `hack/bootstrap.sh`
   already installs from, made declarative.
-- `platform-cicd-control-plane/` - Helm chart Application, values from
-  `platform-cicd`'s own `hack/values-kind-dev.yaml` (the same file
-  `hack/generate-cluster-values.sh` produces and `hack/bootstrap.sh` auto-discovers - one
-  canonical source, not duplicated here).
+- `platform-cicd-control-plane/` - Helm chart Application, multi-source: chart from
+  `platform-cicd.git`, values from this directory's own `values-kind-dev.yaml`
+  (cluster state lives here, not in `platform-cicd`'s own repo - see that
+  Application's own header and `platform-cicd/hack/generate-cluster-values.sh`, which
+  produces it directly into this directory).
 
 **Not vendored here, deliberately**: External Secrets Operator - already installed
 cluster-wide by `gitops-cluster-dev/10-crds-operators/external-secrets/`, a real,
@@ -37,11 +38,13 @@ default install matching what `hack/bootstrap.sh`'s own step 2/6 would do (confi
 
 ## The cluster-agnostic mechanism this replaces
 
-Per `feedback_cluster_agnostic_idp` memory: `kind-dev`'s previous install used a
-hand-typed `hack/values-kind-dev.yaml` (openssl run by hand, cert material copy-pasted).
-That's now generated (`hack/generate-cluster-values.sh`), and the chart-level values it
-used to hand-type (`tenantsRepoUrl`/`tenantOnboardingApplicationSetName`) now derive from
-a single `clusterName` value by convention - see `platform-cicd`'s own
+`kind-dev`'s previous install used a hand-typed values file (openssl run by hand, cert
+material copy-pasted) committed inside `platform-cicd` itself. That's now generated
+(`platform-cicd/hack/generate-cluster-values.sh`) straight into this directory's own
+`platform-cicd-control-plane/values-kind-dev.yaml` - cluster state lives with the
+cluster config, not inside the reusable application repo. The chart-level values that
+used to be hand-typed (`tenantsRepoUrl`/`tenantOnboardingApplicationSetName`) derive
+from a single `clusterName` value by convention - see `platform-cicd`'s own
 `charts/platform-cicd-control-plane/values.yaml` comments. This directory is what
 consumes the result of that mechanism declaratively, rather than a human running
 `hack/bootstrap.sh` by hand against `kind-dev`.
