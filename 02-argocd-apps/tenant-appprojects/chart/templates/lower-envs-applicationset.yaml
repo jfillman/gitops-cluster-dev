@@ -103,9 +103,16 @@ spec:
         # selected by the store), not a folder - confirmed live via
         # app-checkout-api-dev's real ExternalSecret (SecretSyncedError) and the
         # real Infisical API (both test secrets live at secretPath "/", no "shared"
-        # folder exists).
+        # folder exists). v0.3.35 (2026-08-19): platform-cicd's registry-credentials
+        # moved off a per-app opt-in ExternalSecret onto a control-plane-rendered
+        # ClusterExternalSecret - a real miss bumping this file's own pin the same day
+        # as tenant-onboarding/applicationset.yaml's, caught only once this exact
+        # Application (checkout-api-dev) was found still stuck on v0.3.19, unable to
+        # sync at all (a separate, pre-existing gap: this ArgoCD instance had no
+        # registered git credentials for private app repos like checkout-api - see
+        # argocd-repo-creds-jfillman, this namespace).
         - repoURL: {{ .Values.idpServiceCatalogRepoUrl }}
-          targetRevision: v0.3.19
+          targetRevision: v0.3.35
           path: charts/idp-application
           helm:
             valuesObject:
