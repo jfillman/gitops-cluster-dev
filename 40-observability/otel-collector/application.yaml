@@ -70,6 +70,24 @@ spec:
                   - k8s.pod.name
                   - k8s.namespace.name
                   - k8s.node.name
+          connectors:
+            # Feeds platform-cicd's pipelines-overview.json "Stage duration (p50/p95)"
+            # panel, which queries traces_span_metrics_duration_milliseconds_bucket -
+            # only exists once this connector runs. Ported from platform-cicd's
+            # kind-observe-specific patch (observability/kind-observe/
+            # otel-collector-values-patch.yaml), which this Application's base config
+            # was originally transcribed without. Metric name is
+            # "traces_span_metrics_*" (underscore), not matching the connector's own
+            # "spanmetrics" key - verified live by scraping :8889/metrics directly.
+            spanmetrics:
+              histogram:
+                explicit:
+                  buckets: [100ms, 500ms, 1s, 5s, 15s, 30s, 1m, 5m, 15m, 30m, 1h]
+              dimensions:
+                - name: platform.stage
+                - name: platform.chain_id
+                - name: governance.stub
+              metrics_flush_interval: 15s
           exporters:
             otlp/tempo:
               endpoint: tempo.observability.svc.cluster.local:4317
@@ -92,13 +110,13 @@ spec:
               traces:
                 receivers: [otlp]
                 processors: [memory_limiter, k8sattributes, batch]
-                exporters: [otlp/tempo]
+                exporters: [otlp/tempo, spanmetrics]
               logs:
                 receivers: [otlp]
                 processors: [memory_limiter, k8sattributes, batch]
                 exporters: [otlphttp/loki]
               metrics:
-                receivers: [otlp]
+                receivers: [otlp, spanmetrics]
                 processors: [memory_limiter, k8sattributes, batch]
                 exporters: [prometheus]
         resources:

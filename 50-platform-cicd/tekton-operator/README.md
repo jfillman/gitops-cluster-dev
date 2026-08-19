@@ -5,6 +5,12 @@ Installs Tekton Pipelines/Triggers/Chains/Dashboard/Pipelines-as-Code on `kind-d
 the raw-manifest-per-component install `hack/bootstrap.sh` uses for `kind-observe`.
 `kind-observe` is untouched - this is `kind-dev`-only, see `50-platform-cicd/README.md`.
 
+`tekton-servicemonitor.yaml` (also synced by this directory's Application) is the one
+piece of `kind-observe`'s custom observability config ported here - Prometheus scraping
+for Tekton's own controller metrics, feeding `pipelines-overview.json`'s PipelineRun
+list panels. Confirmed the same `app: tekton-pipelines-controller` label and
+`http-metrics` port name apply to the operator-installed Service unchanged.
+
 ## Why the operator, and why NOT a Helm chart
 
 Real Helm charts exist for individual components
@@ -29,10 +35,10 @@ bundled with the operator release is what you get.
   hardcoded `tekton-chains`/`pipelines-as-code` as a namespace name had to change - see
   `platform-cicd`'s own `tektonChainsNamespace` value
   (`charts/platform-cicd-control-plane`, `charts/platform-cicd-catalog`,
-  `hack/values-kind-dev.yaml`), most importantly `verify-image-provenance.yaml`/
-  `verify-sast-attestation.yaml`'s cosign `--certificate-identity-regexp` - a
-  security-critical check (verifies a signature really came from the real Chains
-  controller), not a cosmetic path.
+  `../platform-cicd-control-plane/values-kind-dev.yaml`), most importantly
+  `verify-image-provenance.yaml`/`verify-sast-attestation.yaml`'s cosign
+  `--certificate-identity-regexp` - a security-critical check (verifies a signature
+  really came from the real Chains controller), not a cosmetic path.
 - **`dashboard.readonly` defaults to `false`** (write-enabled) - this platform
   deliberately runs Dashboard read-only everywhere else (`hack/bootstrap.sh`'s own
   comment: a write-enabled dashboard is a standing bypass around the "no elevated
