@@ -156,4 +156,14 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+        # Lets platform-cicd's registry-credentials ClusterExternalSecret select this
+        # namespace automatically - a real, separate gap found live 2026-08-19:
+        # this ApplicationSet creates the actual app-<appName>-<envName> namespace
+        # (unlike tenant-onboarding/applicationset.yaml, which only covers the
+        # app-<appName>-cicd one), but never got this label when the mechanism was
+        # built. Re-applied every sync (only takes effect alongside
+        # CreateNamespace=true), so it also lands on already-existing namespaces.
+        managedNamespaceMetadata:
+          labels:
+            platform.io/managed-secrets: "true"
 {{- end }}
