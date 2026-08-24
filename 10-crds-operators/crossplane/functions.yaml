@@ -43,6 +43,15 @@ metadata:
     platform.io/subcomponent: crds-operators
     platform.io/origin: ai-rollout
 spec:
+  # 2026-08-24: bumped from v0.2.3 - fixes RolloutWatch XRs staying
+  # Synced=False/Ready=False forever after the Rollout they watch recovers
+  # (the diagnosis Job's bare identity was re-declared every reconcile
+  # unconditionally; if that Job was ever deleted out-of-band, Crossplane's
+  # re-create attempt failed required-field validation forever). Caught live
+  # on kind-dev's checkout-api RolloutWatch. See
+  # idp-service-catalog/functions/function-rollout-watcher/README.md's own
+  # changelog for v0.2.4.
+  #
   # 2026-08-22: bumped from v0.1.16, found live stuck several releases behind
   # while fixing a real readiness bug on kind-prod (v0.2.2's diagnosis-dispatch-sa
   # composed ServiceAccount never went Ready, stuck the RolloutWatch XR and
@@ -51,4 +60,4 @@ spec:
   # changelog for v0.2.3). kind-dev had never picked up any of the
   # diagnosis-dispatch-sa work (v0.1.16 predates it entirely), so this bump also
   # brings kind-dev's HolmesGPT dispatch path up to parity with kind-prod's.
-  package: ghcr.io/jfillman/function-rollout-watcher:v0.2.3
+  package: ghcr.io/jfillman/function-rollout-watcher:v0.2.4
