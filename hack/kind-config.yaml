@@ -26,6 +26,24 @@
 # Single control-plane node, no workers - matches this cluster's actual topology
 # (kind-dev has only ever run `dev-control-plane`), not platform-cicd's own 3-node
 # template.
+#
+# kubeadmConfigPatches (KubeletConfiguration maxPods) - kubelet's stock default (110)
+# sits well below what this cluster's full stack actually schedules (100 pods measured
+# live 2026-08-23, ArgoCD x2 + Crossplane + cert-manager + external-secrets + the full
+# observability stack + Tekton + platform-cicd + Infisical + tenants, all on one node) -
+# baked in here so a fresh `kind create cluster` doesn't have to be live-patched
+# (`/var/lib/kubelet/config.yaml` + `systemctl restart kubelet`) after the fact, same
+# gap already hit and fixed live once before (2026-08-16, see
+# 50-platform-cicd/tekton-operator/README.md's own "node-capacity" note) and again
+# 2026-08-23 recreating from scratch, since the live patch doesn't survive a recreate.
+#
+# The companion fix from both of those passes - raising podman's per-container
+# --pids-limit (default 2048, also hit live both times, identical generic
+# `fork/exec: resource temporarily unavailable` symptom) - is NOT set here: it's a
+# podman/container-runtime setting, not a kubelet one, so as of 2026-08-23 it's set
+# globally via `~/.config/containers/containers.conf`'s own `pids_limit = 8192`
+# instead, which covers every podman container (not just kind nodes) and, unlike a
+# per-container `podman update`, actually persists across a `kind create cluster`.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: dev
@@ -34,6 +52,10 @@ networking:
   podSubnet: "192.168.0.0/16"
 nodes:
   - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        maxPods: 250
     extraPortMappings:
       - containerPort: 30080
         hostPort: 80

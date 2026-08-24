@@ -22,7 +22,13 @@
 # distinguishable responses, e.g. a genuine 401 without a token). This value is a
 # stable, one-time platform fact (this cluster's one permanent org, created once by
 # the bootstrap Job) - a committed constant here, not a workaround.
-# 9144c116-d1eb-4cea-bac9-9b5272035ea7 = the "idp" org's real id on kind-dev.
+# 820c617c-71a5-45e4-bc19-863a4f88edf8 = the "idp" org's real id on kind-dev, as of
+# the 2026-08-23 from-scratch recreate (etcd WAL corruption forced a full rebuild,
+# which also wiped Infisical's own Postgres - a brand-new org gets a brand-new id even
+# with the same name "idp", so this constant goes stale on every full recreate, not
+# just a one-time lookup). Old value from before that recreate:
+# 9144c116-d1eb-4cea-bac9-9b5272035ea7 - kept here as a record of what "stale" looks
+# like (silent 403s on every identity-creation call), not because it's still valid.
 #
 # INFISICAL_K8S_CA_CERT / INFISICAL_K8S_TOKEN_REVIEWER_JWT: from
 # infisical-token-reviewer-token (token-reviewer-rbac.yaml, same directory) - the
@@ -65,7 +71,7 @@ spec:
             - name: INFISICAL_API_URL
               value: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
             - name: INFISICAL_ORG_ID
-              value: "9144c116-d1eb-4cea-bac9-9b5272035ea7"
+              value: "820c617c-71a5-45e4-bc19-863a4f88edf8"
             - name: INFISICAL_ADMIN_TOKEN
               valueFrom:
                 secretKeyRef:

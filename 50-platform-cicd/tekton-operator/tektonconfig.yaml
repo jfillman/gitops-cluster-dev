@@ -20,10 +20,14 @@
 # all but this platform has never used it (build/test/deploy/release history is tracked
 # via Grafana/DORA-exporter/CDEvents instead) - disabled rather than left running unused.
 #
-# platforms.kubernetes.pipelinesAsCode.enable: true - explicit, not relied on as an
-# undocumented default (it happens to already be on with profile: all on vanilla
-# Kubernetes, confirmed live, but this makes it a deliberate choice, not an accident of
-# default behavior).
+# platforms.kubernetes.pipelinesAsCode.enable: false (was true) - flipped 2026-08-23,
+# same pass as pipelines-as-code-vendored.yaml (this directory) - the operator's own
+# TektonTrigger-readiness reconcile loop never gets far enough to install PAC itself on
+# a truly clean install of this exact vendored build (confirmed live: PAC's Repository
+# CRD never existed until installed standalone), so PAC is now managed outside the
+# operator entirely. See that file's own header for the full mechanism and the real fix
+# once available (bump the vendored operator release, delete that file, flip this back
+# to true).
 #
 # scheduler/tektonpruner: NOT in profile: all's bundle (TektonScheduler/TektonPruner are
 # newer, opt-in components - Kueue-based multi-cluster pipeline scheduling and an
@@ -51,7 +55,7 @@ spec:
   platforms:
     kubernetes:
       pipelinesAsCode:
-        enable: true
+        enable: false
   scheduler:
     disabled: true
     multi-cluster-disabled: true
