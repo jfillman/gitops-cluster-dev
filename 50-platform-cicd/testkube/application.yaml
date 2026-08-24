@@ -1,0 +1,76 @@
+# Testkube CE (standalone agent, no commercial Control Plane) - executes the `test`
+# Pipeline's TestWorkflows. Deliberately nested under 50-platform-cicd/, not
+# 10-crds-operators/: Testkube only has a reason to exist where platform-cicd's own
+# control plane runs (Tekton is what triggers a TestWorkflow execution in the first
+# place), so it rides the exact same PLATFORM_CICD gate as its sibling
+# platform-cicd-control-plane/ - see gitops-cluster-template/hack/customize-cluster.sh
+# line ~119 (`[ "${PLATFORM_CICD}" = "true" ] || prune "50-platform-cicd"`). No script
+# change was needed to wire that up; nesting here was enough.
+#
+# Multi-source, mirroring platform-cicd-control-plane/application.yaml's own $ref
+# pattern exactly (see that file's header for the full rationale): source 0 is the
+# published chart, source 1 is $ref'd purely to read values-kind-dev.yaml from THIS
+# repo.
+#
+# Why the values file, not just inline valuesObject: Testkube enforces
+# testkube-api.executionNamespaces / additionalNamespaces as a hard runtime allow-list
+# in code (kubeshop/testkube pkg/testworkflows/executionworker/kubernetesworker/
+# worker.go: "namespace %s not supported" - confirmed by reading the actual source, not
+# assumed from docs). There's no wildcard/dynamic-discovery option. So this list is
+# real, per-cluster state - which onboarded tenants' <type>-<appName>-cicd namespaces
+# Testkube is allowed to run TestWorkflows in - and belongs in THIS repo next to the
+# Application, same as platform-cicd-control-plane's Fulcio material, not baked into
+# the chart or hardcoded here. See docs/admin/onboarding-mechanics.md (platform-cicd
+# repo) step 3 - adding a tenant now also means adding its -cicd namespace to
+# values-kind-dev.yaml here, same reviewed-PR motion as adding tenants/<app-name>/
+# identity.yaml.
+#
+# RBAC: deliberately NOT a hand-rolled ClusterRole. testkube-api's chart already
+# generates a namespace-scoped Role+RoleBinding per executionNamespaces entry
+# (create-get-list-secrets-role-<ns>, jobs-role-<ns>, get-configmaps-role-<ns>,
+# persistentvolumeclaims-role-<ns> - confirmed by reading
+# k8s/helm/testkube-api/templates/role.yaml/rolebinding.yaml directly), scoped to
+# exactly the namespaces listed below - narrower than a cluster-wide grant would be,
+# and centrally driven by this one file rather than scattered across each tenant's own
+# onboarding chart. Note the generated secrets Role grants get/list/create (not just
+# create) - that's chart-default behavior for Testkube's own execution-variable
+# secrets, not something added here, and it stays scoped to that tenant's own already-
+# trusted -cicd namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: testkube
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: platform-cicd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubeshop.github.io/helm-charts
+      chart: testkube
+      targetRevision: "2.12.2"
+      helm:
+        releaseName: testkube
+        valuesObject:
+          testkube-api:
+            multinamespace:
+              enabled: true
+        valueFiles:
+          # $-ref resolves relative to that source's checkout ROOT.
+          - $clustercfg/50-platform-cicd/testkube/values-kind-dev.yaml
+    - repoURL: https://github.com/jfillman/gitops-cluster-dev.git
+      targetRevision: main
+      ref: clustercfg
+      # Exists only to be $ref'd above - without this, ArgoCD's directory-source
+      # auto-detection would try to apply every *.yaml in this repo as a raw manifest.
+      directory:
+        exclude: "*"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: testkube
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
