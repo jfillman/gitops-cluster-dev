@@ -55,7 +55,17 @@ spec:
     # v0.3.35..v0.3.36's only xrds/compositions/ diff is that one addition
     # (checked via `git diff --stat`) - clean, additive-only, same bar the
     # prior bump above used.
-    targetRevision: v0.3.36
+    # 2026-08-23: bumped from v0.3.36 to v0.3.38 (skipping v0.3.37 - its own
+    # changes don't touch xrds/ or compositions/*/composition.yaml at all,
+    # confirmed via `git log`/`git diff --stat` across the full v0.3.36..v0.3.38
+    # range). v0.3.38 adds crossplane.io/external-name to NodeJSApplication's
+    # src/gitops Repository managed resources - fixes a real live bug this
+    # same kind-dev rebuild hit: a fresh Repository MR with no external-name
+    # tries to Create a GitHub repo that already exists (GitHub, unlike
+    # Crossplane state, survives the rebuild) and 422s forever. Diff is that
+    # one addition, twice (checked via `git diff --stat`) - clean,
+    # additive-only, same bar the prior bumps above used.
+    targetRevision: v0.3.38
     path: .
     directory:
       recurse: true
