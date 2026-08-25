@@ -78,7 +78,18 @@ spec:
     # 10.89.0.2 after a further kind-dev restart - not monotonic, don't
     # assume a higher IP is newer. No live effect here either, same as the
     # v0.3.39 bump above.
-    targetRevision: v0.3.41
+    # 2026-08-24: bumped from v0.3.41 to v0.3.42. Adds SpringBootApplication -
+    # a brand-new XRD (xrds/springbootapplication.yaml) + Composition
+    # (compositions/springbootapplication/composition.yaml), Item 1/2's second
+    # Bootstrap-tier stack, structurally a port of NodeJSApplication's already-
+    # live mechanism onto Java/Spring Boot. v0.3.41..v0.3.42's only xrds/
+    # compositions/ diff is this one addition (checked via `git diff --stat`) -
+    # clean, additive-only, same bar the prior bumps above used. Already
+    # live-verified pre-bump via direct `kubectl apply` on kind-dev (throwaway
+    # springbootapp-verify-test, real GitHub repos/commits, torn down after) -
+    # this bump is what makes it the durable, GitOps-managed source of truth
+    # instead of an out-of-band kubectl apply.
+    targetRevision: v0.3.42
     path: .
     directory:
       recurse: true
