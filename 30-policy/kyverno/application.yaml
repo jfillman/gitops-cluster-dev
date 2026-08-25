@@ -56,5 +56,6 @@ spec:
       name: deletingpolicies.policies.kyverno.io
       jsonPointers:
         - /metadata/labels
+        - /metadata/annotations
       managedFieldsManagers:
         - kube-apiserver
