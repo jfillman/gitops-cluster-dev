@@ -135,7 +135,18 @@ spec:
     # `git diff --stat`) - clean, additive-only, same bar the prior bumps above
     # used. Generated main.py/main.go/go.mod offline-verified against the real
     # Python/Go toolchains before this bump, not just crossplane render.
-    targetRevision: v0.3.46
+    # 2026-08-25: bumped from v0.3.46 to v0.3.47. ApplicationEnvironment's own
+    # 00-app-kind-gate.yaml only checked NodeJSApplication/SpringBootApplication,
+    # defaulting to NodeJSApplication otherwise - found live the moment
+    # search-api-kind-prod-prod/process-api-kind-prod-prod were created (v0.3.46's
+    # own new PythonApplication/GoApplication stacks): the composed Usage's
+    # spec.of.kind resolved to NodeJSApplication for both, which doesn't exist for
+    # either app, stuck at Ready: False the same way order-api's did before this
+    # gate existed at all. Extends the same lookup mechanism with two more
+    # ExtraResources requirements. v0.3.46..v0.3.47's only xrds/compositions/ diff
+    # is this one gate file (checked via `git diff --stat`) - clean, same bar the
+    # prior bumps above used.
+    targetRevision: v0.3.47
     path: .
     directory:
       recurse: true
