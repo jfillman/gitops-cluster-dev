@@ -113,7 +113,19 @@ spec:
     # (overwriteOnCreate: true, identical content) re-establishes ownership.
     # v0.3.43..v0.3.44's only xrds/compositions/ diff is this extraction (checked
     # via `git diff --stat`) - same bar the prior bumps above used.
-    targetRevision: v0.3.44
+    # 2026-08-25: bumped from v0.3.44 to v0.3.45. ApplicationEnvironment's own
+    # app-usage.yaml no longer hardcodes kind: NodeJSApplication on the composed
+    # Usage's spec.of - a real bug found live testing order-api's fresh
+    # SpringBootApplication install (that Usage's `of` target never resolved,
+    # which left the whole composite stuck at Ready: False forever, not the
+    # "harmless no-op" the old code assumed). New 00-app-kind-gate.yaml resolves
+    # the real owning kind via an ExtraResources lookup, same pattern as
+    # 00-cluster-gate.yaml/00-devcluster-gate.yaml. Verified offline via
+    # crossplane render before this bump (existing gate-pass fixture unchanged,
+    # new springboot-app-exists.yaml fixture proves the new branch) - only
+    # composition.yaml under applicationenvironment/ changed, same scoped bar as
+    # the prior bumps above.
+    targetRevision: v0.3.45
     path: .
     directory:
       recurse: true
