@@ -125,7 +125,17 @@ spec:
     # new springboot-app-exists.yaml fixture proves the new branch) - only
     # composition.yaml under applicationenvironment/ changed, same scoped bar as
     # the prior bumps above.
-    targetRevision: v0.3.45
+    # 2026-08-25: bumped from v0.3.45 to v0.3.46. Adds PythonApplication
+    # (xrds/pythonapplication.yaml + compositions/pythonapplication/) and
+    # GoApplication (xrds/goapplication.yaml + compositions/goapplication/) - third
+    # and fourth Bootstrap-tier stacks, structural ports of NodeJSApplication built
+    # after the TektonCICD extraction (both compose a TektonCICD child for CI/CD
+    # onboarding instead of carrying it inline). v0.3.45..v0.3.46's only
+    # xrds/compositions/ diff is these two brand-new additions (checked via
+    # `git diff --stat`) - clean, additive-only, same bar the prior bumps above
+    # used. Generated main.py/main.go/go.mod offline-verified against the real
+    # Python/Go toolchains before this bump, not just crossplane render.
+    targetRevision: v0.3.46
     path: .
     directory:
       recurse: true
