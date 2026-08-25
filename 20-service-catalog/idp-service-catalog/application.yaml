@@ -89,7 +89,17 @@ spec:
     # springbootapp-verify-test, real GitHub repos/commits, torn down after) -
     # this bump is what makes it the durable, GitOps-managed source of truth
     # instead of an out-of-band kubectl apply.
-    targetRevision: v0.3.42
+    # 2026-08-24: bumped from v0.3.42 to v0.3.43. Excludes "Delete" from
+    # cicd-identity-yaml's managementPolicies in both NodeJSApplication and
+    # SpringBootApplication's Compositions - safety step ahead of extracting
+    # CI/CD onboarding into its own TektonCICD XRD, so that removing this
+    # composition-resource-name from the pipeline later orphans only the k8s
+    # RepositoryFile CR, not the real tenants/<app>/identity.yaml file on
+    # GitHub (matches applicationenvironment's own cluster-identity-yaml.yaml
+    # precedent). v0.3.42..v0.3.43's only xrds/compositions/ diff is that one
+    # field, twice (checked via `git diff --stat`) - clean, additive-only,
+    # same bar the prior bumps above used.
+    targetRevision: v0.3.43
     path: .
     directory:
       recurse: true
