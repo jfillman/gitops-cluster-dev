@@ -74,6 +74,12 @@ spec:
   syncPolicy:
     automated:
       selfHeal: true
+      # Chart used to render a per-app tests-job-<appName> ServiceAccount; the current
+      # 2.12.2 render doesn't, but prune was never enabled so the two ServiceAccounts
+      # from the original install (app-checkout-api-cicd, app-nodejs-demo-app-cicd)
+      # were stuck live-forever, permanently OutOfSync/PruneSkipped - confirmed via
+      # `argocd app diff --core` (261 self-heal attempts recorded, StuckDriftLoop).
+      prune: true
     syncOptions:
       - CreateNamespace=true
       # Required, not optional: live-verified 2026-08-24 that plain client-side apply

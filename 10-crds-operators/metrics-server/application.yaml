@@ -1,0 +1,36 @@
+# Was missing entirely on kind-dev - confirmed live 2026-08-25 via radar's `issues`
+# scan: two tekton-pipelines HPAs (tekton-operator-proxy-webhook, tekton-pipelines-
+# webhook) permanently stuck `cannot-scale` because pods.metrics.k8s.io didn't exist
+# as an APIService at all. Every HPA on the cluster needs this, not just those two.
+#
+# --kubelet-insecure-tls: kind nodes' kubelet serving certs aren't signed for a SAN
+# metrics-server's default TLS verification accepts (same class of self-signed-cert
+# issue every kind-cluster metrics-server install hits, not specific to this repo).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server/
+    chart: metrics-server
+    targetRevision: "3.14.0"
+    helm:
+      releaseName: metrics-server
+      valuesObject:
+        args:
+          - --kubelet-insecure-tls
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
