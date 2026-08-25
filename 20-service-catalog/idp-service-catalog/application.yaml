@@ -99,7 +99,21 @@ spec:
     # precedent). v0.3.42..v0.3.43's only xrds/compositions/ diff is that one
     # field, twice (checked via `git diff --stat`) - clean, additive-only,
     # same bar the prior bumps above used.
-    targetRevision: v0.3.43
+    # 2026-08-25: bumped from v0.3.43 to v0.3.44. Extracts CI/CD onboarding out of
+    # NodeJSApplication/SpringBootApplication's own Compositions into a new
+    # TektonCICD XRD (xrds/tektoncicd.yaml + compositions/tektoncicd/) - both app
+    # XRDs now compose a TektonCICD child directly instead of rendering the
+    # devCluster-gate/identity.yaml-commit/status logic inline. Depends on v0.3.43's
+    # managementPolicies fix already being live (already verified, all three
+    # onboarded apps patched in place, no delete/recreate): this bump orphans the
+    # old cicd-identity-yaml composition-resource-name on checkout-api,
+    # nodejs-demo-app, and order-api, and because Delete is now excluded, that only
+    # removes the k8s CR - the real tenants/<app>/identity.yaml file on GitHub
+    # survives, and the new TektonCICD child's own RepositoryFile
+    # (overwriteOnCreate: true, identical content) re-establishes ownership.
+    # v0.3.43..v0.3.44's only xrds/compositions/ diff is this extraction (checked
+    # via `git diff --stat`) - same bar the prior bumps above used.
+    targetRevision: v0.3.44
     path: .
     directory:
       recurse: true
