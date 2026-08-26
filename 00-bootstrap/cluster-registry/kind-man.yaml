@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kind-man
+  namespace: crossplane-system
+  labels:
+    platform.io/cluster-registry: "true"
+data:
+  type: upper
+  cicdReady: "false"
+  crossplaneReady: "false"
+  tenantsRepo: gitops-cluster-kind-man-tenants
