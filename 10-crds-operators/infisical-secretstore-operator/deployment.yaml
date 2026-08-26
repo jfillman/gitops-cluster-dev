@@ -1,10 +1,11 @@
-# imagePullPolicy: Never - the image isn't in a registry yet, it's `kind load
-# image-archive`'d directly into kind-dev's containerd (see application.yaml's
-# header). Would need to change to a real pull policy once a registry pipeline
-# exists. Image ref needs the explicit `localhost/` prefix - confirmed live
-# (ErrImageNeverPull without it): containerd/podman cache locally-built,
-# unpushed images under that prefix, and Never pull policy requires an exact
-# reference match, not just a matching image ID.
+# image/imagePullPolicy: pushed to ghcr.io/jfillman/infisical-secretstore-operator:dev
+# (2026-08-26) - previously `localhost/infisical-secretstore-operator:dev` with
+# imagePullPolicy: Never, `kind load image-archive`'d by hand into each cluster's
+# containerd (see "Local dev loop" in the operator's own README). That stopped
+# scaling once a third cluster (kind-man) needed the same image too. Still no CI
+# publish pipeline - a new build/push is still a manual `podman build && podman
+# push` followed by editing this file's `image:` tag on every cluster that runs it
+# (see the operator README's own dev-loop section).
 #
 # INFISICAL_ADMIN_TOKEN comes from infisical-bootstrap-secret's `token` key - the
 # chart's own autoBootstrap Job output (infisical/application.yaml), same namespace,
@@ -59,8 +60,8 @@ spec:
       serviceAccountName: infisical-secretstore-operator
       containers:
         - name: operator
-          image: localhost/infisical-secretstore-operator:dev
-          imagePullPolicy: Never
+          image: ghcr.io/jfillman/infisical-secretstore-operator:dev
+          imagePullPolicy: IfNotPresent
           env:
             # kopf's own peering-identity detection calls Python's getpass.getuser(),
             # which crashes (OSError: No username set in the environment) when running
