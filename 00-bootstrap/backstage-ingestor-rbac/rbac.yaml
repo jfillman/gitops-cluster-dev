@@ -1,0 +1,76 @@
+# Same minimum scope as kind-man's own backstage-ingestor RBAC (view + CRD read +
+# crossplane-browse, no crossplane-view/managed-resource or secrets access) - see that
+# file's own header for the full rationale (TeraSky-OSS/backstage-plugins
+# kubernetes-ingestor/K8S_RBAC.md). The one real difference: this ServiceAccount's
+# token is minted as a long-lived Secret (below), not a kubelet-projected in-cluster
+# mount, because the consumer (Backstage) runs on a different cluster (kind-man) and
+# has no pod here to project a token into. The token value itself is never read or
+# handled by an assistant - see this directory's README for how it's planted into
+# Infisical and delivered to kind-man.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backstage-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backstage-ingestor
+  namespace: backstage-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-ingestor-token
+  namespace: backstage-system
+  annotations:
+    kubernetes.io/service-account.name: backstage-ingestor
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-ingestor-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backstage-crd-viewer
+rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-ingestor-crd-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backstage-crd-viewer
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-ingestor-crossplane-browse
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crossplane-browse
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system

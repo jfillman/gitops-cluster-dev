@@ -1,0 +1,33 @@
+# Read-only RBAC on this cluster for the kubernetes-ingestor plugin running on
+# kind-man's Backstage instance (idp/docs/backstage-design.md "Catalog ingestion",
+# Phase 2: kind-dev/kind-prod). Backstage itself doesn't run here - this grants a
+# ServiceAccount + long-lived token an EXTERNAL Backstage instance authenticates as,
+# same shape as kind-man's own gitops-cluster-kind-man/60-backstage/backstage/rbac.yaml
+# but with a real token Secret instead of a kubelet-projected in-cluster mount, since
+# there's no local pod to project one into. Directory-source, same pattern as
+# 00-bootstrap/cluster-registry/application.yaml in this same repo (excludes itself,
+# everything else in the directory applies as-is).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backstage-ingestor-rbac
+  namespace: argocd
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: backstage-ingestor-rbac
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jfillman/gitops-cluster-dev.git
+    targetRevision: main
+    path: 00-bootstrap/backstage-ingestor-rbac
+    directory:
+      exclude: "application.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: backstage-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
