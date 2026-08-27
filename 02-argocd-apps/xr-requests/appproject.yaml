@@ -63,6 +63,15 @@ spec:
       kind: NodeJSApplication
     - group: catalog.idp.io
       kind: SpringBootApplication
+    # GoApplication/PythonApplication added 2026-08-27 (Backstage catalog-ingestion
+    # work, idp/docs/backstage-design.md): both XRDs/Compositions were already fully
+    # built ("Third"/"Fourth Bootstrap-tier stack XRD" per their own headers) but never
+    # added here - caught live before it repeated the identical "not permitted in
+    # project idp-onboarding" gap SecretStore/SpringBootApplication already hit.
+    - group: catalog.idp.io
+      kind: GoApplication
+    - group: catalog.idp.io
+      kind: PythonApplication
     - group: catalog.idp.io
       kind: ApplicationEnvironment
     - group: catalog.idp.io
