@@ -152,7 +152,15 @@ spec:
     # v0.3.49 annotates the 5 Bootstrap-tier XRDs with terasky.backstage.io/
     # add-to-catalog + target-path (idp/docs/backstage-design.md) - additive only,
     # checked via `git diff --stat v0.3.47 v0.3.49`.
-    targetRevision: v0.3.49
+    #
+    # v0.3.50 (2026-08-29): adds TektonCICD/NodeJSApplication spec.extraGitopsRepos -
+    # an app whose gitops-image-bump stage (platform-cicd) targets a repo it doesn't
+    # own by the gitops-<appName> convention (e.g. Backstage -> gitops-cluster-
+    # kind-man) needs an extra Repository CR grant. A hand-edit to the generated
+    # tenants/backstage/identity.yaml got reverted by the TektonCICD Composition's
+    # own reconcile loop - this makes the grant a real declared XR field instead, so
+    # it's part of the desired state rather than drift. Additive only.
+    targetRevision: v0.3.50
     path: .
     directory:
       recurse: true
