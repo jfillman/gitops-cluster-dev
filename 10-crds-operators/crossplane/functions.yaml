@@ -43,6 +43,21 @@ metadata:
     platform.io/subcomponent: crds-operators
     platform.io/origin: ai-rollout
 spec:
+  # 2026-09-02: bumped from v0.2.4 - v0.2.4 (and every tag before it) was a
+  # genuine single-platform (amd64-only) OCI manifest, confirmed live via the
+  # GHCR API: it was built and pushed by hand at some point, since
+  # functions/function-rollout-watcher/.github/workflows/ci.yml (vendored from
+  # the Crossplane function-template-python scaffold) was never actually
+  # discoverable by GitHub Actions - it lives under a monorepo subdirectory,
+  # and Actions only scans the repo root's .github/workflows/. Crashed with
+  # "exec format error" on kiac-dev's real arm64 nodes. Fixed by adding a real
+  # top-level .github/workflows/function-rollout-watcher-ci.yaml (this repo's
+  # idp-service-catalog) that does the same amd64+arm64 matrix build the
+  # nested file already correctly described, wired to actually run. v0.2.5 is
+  # a genuine multi-platform OCI index (both linux/amd64 and linux/arm64),
+  # confirmed live against the GHCR manifest API - not the source code, which
+  # is unchanged from v0.2.4.
+  #
   # 2026-08-24: bumped from v0.2.3 - fixes RolloutWatch XRs staying
   # Synced=False/Ready=False forever after the Rollout they watch recovers
   # (the diagnosis Job's bare identity was re-declared every reconcile
@@ -60,4 +75,4 @@ spec:
   # changelog for v0.2.3). kind-dev had never picked up any of the
   # diagnosis-dispatch-sa work (v0.1.16 predates it entirely), so this bump also
   # brings kind-dev's HolmesGPT dispatch path up to parity with kind-prod's.
-  package: ghcr.io/jfillman/function-rollout-watcher:v0.2.4
+  package: ghcr.io/jfillman/function-rollout-watcher:v0.2.5
