@@ -85,3 +85,14 @@ assumed). Fixed live: `maxPods: 250` added to `/var/lib/kubelet/config.yaml` +
 `systemctl restart kubelet`, and `podman update --pids-limit 8192 dev-control-plane` -
 neither persists across a full `podman machine stop`/`start` cycle, so re-apply both
 after any VM-level restart of this node.
+
+**Update 2026-09-02, PAC disabled + a webhook panic bug (this section's earlier "PAC
+confirmed enabled and healthy" is stale)**: `platforms.kubernetes.pipelinesAsCode.enable`
+was flipped to `false` on 2026-08-23 and PAC is now installed standalone instead -
+see `tektonconfig.yaml`'s and `pipelines-as-code-vendored.yaml`'s own headers. Separately,
+`webhook-failurepolicy-patch.yaml` (this directory) works around a real crash in the
+vendored `pipelines-as-code@v0.49.0` webhook validation code that otherwise blocks
+`TektonConfig` from ever getting past its own finalizer-add step on a from-scratch
+install - confirmed live on kiac-dev 2026-09-02, see that file's header for the full
+panic trace and mechanism. Both are workarounds for the same upstream operator version;
+the real fix is bumping the vendored `tektoncd/operator` release.
