@@ -30,7 +30,11 @@ listener. `kiac-prod`'s equivalent routes live in `gitops-cluster-kind-prod`'s o
 `50-gateway-routes/`, using the same Service names but a `.prod.kiac.local` suffix so
 both clusters' routes can resolve from one `/etc/hosts` at the same time.
 
-Deliberately **not** routed here: `backstage-system` (namespace exists, nothing
-deployed into it yet) and a second, unexplained ArgoCD install found live in the
-`default` namespace on `kiac-prod` (not this cluster) — investigate before exposing
-that one.
+Both ArgoCD instances' `server.insecure: "true"` is set in `01-argocd-platform/`
+(`install.yaml`'s `argocd-cmd-params-cm` for the `argocd` instance,
+`argocd-apps-install/application.yaml`'s `configs.params` for `argocd-apps`) —
+without it, `argocd-server` redirects plain HTTP to HTTPS by default, which the
+Gateway's HTTP-only listener can't follow.
+
+Deliberately **not** routed here: `backstage-system` — namespace exists, nothing
+deployed into it yet.

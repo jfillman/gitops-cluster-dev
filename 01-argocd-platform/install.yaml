@@ -31500,8 +31500,16 @@ metadata:
 # release-application.yaml's Applications live directly in `argocd`, not in a tenant
 # `-cicd` namespace. Back to app-apps-install/README.md's original "no
 # application.namespaces configured on either instance" default.
+# server.insecure: "true" - added 2026-09-02. The kiac Gateway (traefik.io/gateway-
+# controller) only has an HTTP/80 listener, no TLS termination in front of this
+# Service - argocd-server's stock default (TLS on, HTTP redirected to HTTPS) means
+# every HTTPRoute pointed at port 80 just gets a 307 back to a https:// URL the
+# Gateway has no listener for. This makes argocd-server itself terminate plain HTTP
+# instead, matching how the Gateway is actually reached. Same fix applied to
+# argocd-apps-install/application.yaml's own configs.params for the second instance.
 data:
   reposerver.repo.cache.expiration: 3m
+  server.insecure: "true"
 ---
 apiVersion: v1
 kind: ConfigMap

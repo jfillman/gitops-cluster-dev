@@ -94,6 +94,12 @@ spec:
           allowAnyNamespace: true
         configs:
           params:
+            # Added 2026-09-02: the kiac Gateway only has an HTTP/80 listener, no TLS
+            # termination in front of this Service - argocd-server's stock default
+            # (TLS on, HTTP redirected to HTTPS) meant argocd-apps-ui's HTTPRoute just
+            # got a 307 back to a https:// URL the Gateway can't serve. Mirrored onto
+            # 01-argocd-platform/install.yaml's own argocd-cmd-params-cm too.
+            server.insecure: "true"
             reposerver.repo.cache.expiration: 3m
             application.namespaces: "*-cicd"
             applicationsetcontroller.namespaces: "*-cicd"
