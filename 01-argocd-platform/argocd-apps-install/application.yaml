@@ -114,6 +114,17 @@ spec:
           # 2026-08-18 chasing exactly this: patching the platform instance's argocd-cm
           # left these XRs' health at None, since this instance never reads that CM.
           cm:
+            # Backstage's ArgoCD plugin (idp/docs/backstage-design.md plugin #1):
+            # a dedicated local account, `apiKey` capability only (no `login` -
+            # can't be used to sign into the UI/CLI with a password, only to hold
+            # API tokens minted for it). Bound to the built-in `role:readonly` via
+            # configs.rbac below. Token itself is never in git - see
+            # gitops-cluster-kind-man/60-backstage/backstage/
+            # argocd-dev-apps-token-external-secret.yaml for the one-time manual
+            # mint+Infisical-plant step, same "manual by design" posture as
+            # backstage-ingestor-rbac's SA token
+            # (00-bootstrap/backstage-ingestor-rbac/README.md).
+            accounts.backstage: apiKey
             resource.customizations.health.argoproj.io_Rollout: |
               function checkReplicasStatus(obj)
                 local hs = {}
@@ -302,6 +313,14 @@ spec:
                   health_status.status = "Progressing"
                   health_status.message = "No Ready condition yet"
                   return health_status
+          rbac:
+            # Binds the `backstage` account above to ArgoCD's own built-in
+            # read-only role - get/list on every resource in every project,
+            # no write verbs. Same scope-minimization principle as every other
+            # cross-cluster credential this platform delivers to Backstage
+            # (idp/docs/backstage-design.md "Credentials").
+            policy.csv: |
+              g, backstage, role:readonly
         server:
           # Argo Rollouts UI extension: renders the canary/blue-green step timeline
           # inside an Application's resource tree in the web UI. v0.3.7 pinned (not
