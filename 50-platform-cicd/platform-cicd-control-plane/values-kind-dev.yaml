@@ -104,11 +104,14 @@ appSecretStores:
 
 # Real registered upper clusters - same reasoning, moved from chart defaults. kind-prod
 # is checkout-api's real upper-env cluster (idp-service-catalog's
-# ApplicationEnvironment.spec.cluster). outcomeRelayURL's IP is dev-control-plane's own
-# address on the shared podman `kind` bridge network (`podman inspect dev-control-plane`
-# - re-check if the dev cluster is ever recreated, podman does not guarantee the same IP
-# survives that; see docs/admin/multi-cluster.md's cross-cluster-reachability section).
+# ApplicationEnvironment.spec.cluster). outcomeRelayURL now uses the dev.kiac.local
+# hostname (see idp/docs/local-clusters.md) instead of a raw podman-bridge IP - the
+# stack migrated off podman+kind onto kiac/Apple `container` VMs, which don't share a
+# bridge network and get a fresh IP every boot anyway (no static-IP option upstream).
+# dev.kiac.local is kept resolvable via /etc/hosts by
+# /Users/jerf/tech/refresh-kiac-hosts.sh; re-run that after any `kiac resume` that
+# reports an IP change, or this will go stale again the same way the old IP did.
 clusters:
   - name: kind-prod
     relaySecretName: cluster-kind-prod-relay-token
-    outcomeRelayURL: http://10.89.0.2:30880/outcome/kind-prod
+    outcomeRelayURL: http://dev.kiac.local:30880/outcome/kind-prod
