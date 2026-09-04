@@ -176,7 +176,12 @@ spec:
     # This Application's include list IS the broad {xrds/*.yaml,compositions/*/
     # composition.yaml} wildcard (unlike kind-prod/kind-man's narrower copies), so
     # this bump is required here, not optional.
-    targetRevision: v0.3.54
+    # 2026-09-04: bumped v0.3.54 -> v0.3.55 - tektoncicd's own external-name had the
+    # identical unquoted-trailing-colon YAML bug, missed in the v0.3.54 sweep because
+    # its render step is named render-tektoncicd-resources, not render-github-resources
+    # (a directory-scoped grep, not this Application's own include list, is what missed
+    # it - this include list is the broad wildcard and was already covering it).
+    targetRevision: v0.3.55
     path: .
     directory:
       recurse: true
