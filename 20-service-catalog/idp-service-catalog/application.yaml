@@ -160,7 +160,14 @@ spec:
     # tenants/backstage/identity.yaml got reverted by the TektonCICD Composition's
     # own reconcile loop - this makes the grant a real declared XR field instead, so
     # it's part of the desired state rather than drift. Additive only.
-    targetRevision: v0.3.50
+    # 2026-09-04: bumped from v0.3.50 to v0.3.53 to keep this pin from drifting too
+    # far behind the repo's latest tag. v0.3.51..v0.3.53's changes (RolloutWatch
+    # component-type annotation, idp-application's outcome-relay hostAliases) are
+    # both outside this Application's include list (slo/secretstore/rolloutwatch
+    # XRD+Composition only) - confirmed via `git diff v0.3.50 v0.3.53 --stat` on
+    # those exact paths, no diff. No functional change to this Application's own
+    # synced resources.
+    targetRevision: v0.3.53
     path: .
     directory:
       recurse: true
