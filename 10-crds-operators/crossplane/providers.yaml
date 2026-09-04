@@ -24,24 +24,37 @@ spec:
 # — that's what provider-github-config.yaml (this same directory) and
 # idp-service-catalog's Composition target.
 #
-# v0.19.1 -> v0.20.0 (2026-09-04): real bug fix, not routine drift. v0.19.1 vendors
-# terraform-provider-github v6.6.0 (Feb 2025), whose github_repository_file Read()
-# only special-cases HTTP 429 for rate limiting - but GitHub's actual primary
-# rate-limit response is 403 ("API rate limit of N still exceeded"), confirmed
+# KNOWN ROOT CAUSE, NOT YET FIXABLE BY VERSION BUMP (2026-09-04): v0.19.1's vendored
+# terraform-provider-github (v6.6.0, Feb 2025) has a real bug in github_repository_file's
+# Read() - it only special-cases HTTP 429 for rate limiting, but GitHub's actual
+# primary rate-limit response is 403 ("API rate limit of N still exceeded"), confirmed
 # live from this exact provider's own logs. A 403 falls through Read()'s error
 # handling straight to "resource no longer exists, remove from state", which
 # Crossplane surfaces as Observe() reporting ResourceExists:false - triggering a
 # fresh Create with overwriteOnCreate:true and silently wiping the file's real
-# content back to the Composition's bootstrap template. Root-caused after this
-# actually happened live: gitops-checkout-api and gitops-order-api's kind-prod
-# values.yaml (real rollout/releaseTracking data) got clobbered this way multiple
-# times today and once on 2026-09-02, restored by hand each time (see those repos'
-# own git history). v0.20.0 vendors terraform-provider-github v6.13.0, confirmed
-# (via `gh api .../compare`) to already include the real fix (a Feb 2026 refactor
-# that only removes state on an actual 404, not any error) - not just the earlier,
-# incomplete #2345 fix that only covered 429. Release notes are clean: just this
-# dependency bump, one new resource type, and routine chore/security bumps - no
-# breaking changes.
+# content back to the Composition's bootstrap template. This actually happened live:
+# gitops-checkout-api and gitops-order-api's kind-prod values.yaml (real
+# rollout/releaseTracking data) got clobbered this way multiple times today and once
+# on 2026-09-02, restored by hand each time (see those repos' own git history). The
+# fix exists upstream (terraform-provider-github's Feb 2026 refactor that only
+# removes state on an actual 404) and IS in provider-upjet-github's v0.20.0 go.mod
+# (confirmed via `gh api .../compare` against the fixing commit) - but v0.20.0 was
+# NEVER PUBLISHED to xpkg.upbound.io, the actual registry this Provider installs
+# from (confirmed: Crossplane's own package manager gets a real 404/MANIFEST_UNKNOWN
+# resolving it, and marketplace.upbound.io itself lists v0.19.1 as the latest
+# published release - the v0.20.0 git tag exists, but no corresponding OCI package
+# was ever pushed). Tried bumping to v0.20.0 live - Crossplane correctly refused to
+# touch the working install rather than break it, no harm done, reverted here.
+# Actually deploying this fix needs a custom-built image (clone provider-upjet-github
+# at v0.20.0, build, push to our own registry - same pattern as idp-service-catalog's
+# own operators under ghcr.io/jfillman/) - real follow-up work, not a quick pin bump.
+# Mitigated for now instead: the only resource type this bug can actually destroy
+# (values.yaml, the one file with continuously-live real content - everything else
+# this provider manages is idempotent bootstrap/platform content, safe to
+# re-overwrite) has its 3 affected RepositoryFile MRs paused
+# (crossplane.io/paused) directly in-cluster - see checkout-api-kind-prod-{prod,
+# staging}-values-yaml and order-api-kind-prod-prod-values-yaml in app-checkout-api-cicd/
+# app-order-api-cicd.
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -50,4 +63,4 @@ metadata:
     platform.io/component: cluster-config
     platform.io/subcomponent: crds-operators
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-upjet-github:v0.20.0
+  package: xpkg.upbound.io/crossplane-contrib/provider-upjet-github:v0.19.1
