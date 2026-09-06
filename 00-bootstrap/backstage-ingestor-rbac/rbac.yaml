@@ -132,3 +132,41 @@ subjects:
   - kind: ServiceAccount
     name: backstage-ingestor
     namespace: backstage-system
+---
+# Rekor public-key read (2026-09-06, Glidepath's Supply Chain panel - real SET/
+# transparency-log verification now that Rekor is deployed for real, see
+# platform-cicd's provenance-policy.md). Deliberately namespaced Role/RoleBinding,
+# not a ClusterRole like every other grant in this file - rekor-server is itself a
+# namespaced Service, and there's exactly one instance of it, so a cluster-wide grant
+# would be broader than what's actually being reached. `services/proxy` (not plain
+# `services`, which `view` already covers) is what lets a caller with no direct
+# network route to the Service reach its HTTP API through the API server itself - the
+# same mechanism the ConfigMap-based Fulcio root-cert fetch uses for a different
+# resource kind. No ConfigMap equivalent exists for Rekor's public key on purpose
+# (platform-cicd deliberately deleted rekor-pubkey-sync-job.yaml after it went stale -
+# see that repo's own history - every real consumer fetches it live at verify-time
+# instead, and Glidepath now does the same).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ingestor-rekor-proxy
+  namespace: rekor-system
+rules:
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    resourceNames: ["rekor-server"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ingestor-rekor-proxy
+  namespace: rekor-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ingestor-rekor-proxy
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
