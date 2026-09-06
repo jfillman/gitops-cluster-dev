@@ -16,4 +16,11 @@
 # that destabilized this stack five times previously under podman. Same live-resize
 # procedure, no data loss. kiac-man is retired from capacity planning - topology is now
 # just dev + prod.
- kiac create cluster --name dev --workers 0 --cni cilium --kernel full --cpus 10 --cp-memory 38G --gateway
+#
+# Right-sized 38G -> 26G same day, after Rekor was live: a full session's real usage data
+# (idle through a Backstage build through an accidental 6-pipeline concurrent-release
+# burst) showed CPU is the actual binding constraint (peaked 90-92% under realistic load,
+# no room to cut) while memory never exceeded 57% (~21.7GB) even under the inflated
+# burst - cut memory only, keeping CPU at 10, to free real headroom on the host for
+# kiac-prod + macOS itself without reintroducing the old capacity-ceiling risk.
+ kiac create cluster --name dev --workers 0 --cni cilium --kernel full --cpus 10 --cp-memory 26G --gateway
