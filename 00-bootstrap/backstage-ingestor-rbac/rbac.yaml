@@ -152,9 +152,14 @@ metadata:
   name: backstage-ingestor-rekor-proxy
   namespace: rekor-system
 rules:
+  # resourceNames must match the exact "name" or "name:port" string used in
+  # the proxy URL path - confirmed live (2026-09-06) that a request to
+  # .../services/rekor-server:80/proxy/... is checked against the literal
+  # resourceName "rekor-server:80", not "rekor-server" alone. Both forms
+  # listed since either could reasonably be used by a caller.
   - apiGroups: [""]
     resources: ["services/proxy"]
-    resourceNames: ["rekor-server"]
+    resourceNames: ["rekor-server", "rekor-server:80"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
