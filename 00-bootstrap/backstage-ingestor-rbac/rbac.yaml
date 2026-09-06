@@ -103,3 +103,32 @@ subjects:
   - kind: ServiceAccount
     name: backstage-ingestor
     namespace: backstage-system
+---
+# Gateway API (2026-09-06, Glidepath's Config-tab route URL - app-config.yaml's
+# kubernetes.customResources in the backstage repo). Same reasoning as the Argo
+# Rollouts grant above: gateway.networking.k8s.io's HTTPRoute/Gateway CRDs
+# aren't part of `view`'s aggregation either. Gateway is included alongside
+# HTTPRoute because HTTPRoute carries no TLS info of its own - the actual
+# http-vs-https scheme is only knowable from the Gateway listener a route's
+# parentRefs point at.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backstage-gateway-api-viewer
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes", "gateways"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-ingestor-gateway-api-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backstage-gateway-api-viewer
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
