@@ -8,60 +8,15 @@
 # that wires this file in, and platform-cicd/hack/generate-cluster-values.sh for how
 # it's produced (writes straight into this directory now, not platform-cicd/hack).
 #
-# fulcio.issuerCACert/rootCert regenerated 2026-08-24T06:14:12Z by
-# hack/generate-cluster-values.sh kind-dev kind-dev, after kind-dev's full rebuild wiped
-# fulcio-system (namespace + fulcio-secret/fulcio-server-config) and rotated the
-# cluster's own API server CA out from under the old issuerCACert. This is kind-dev's
-# SECOND independently generated Fulcio root - any image signed under the prior root
-# (minted 2026-08-15) is unverifiable now regardless, since that root's private key and
-# the old cluster state are both gone. The other keys below (clusterName through
-# clusters) are unrelated cluster state the generator script doesn't know about and were
-# preserved by hand across this regeneration - see hack/generate-cluster-values.sh's own
-# header for why it only ever owns the fulcio: block.
-#
-# fulcio.issuerCACert: kind-dev's own kube-root-ca.crt "ca.crt" content, read live
-# 2026-08-24 (`kubectl --context kind-dev get configmap kube-root-ca.crt -n default -o
-# jsonpath='{.data.ca\.crt}'`). NOT kind-observe's - confirmed live the two differ.
-#
-# fulcio.rootCert: the public half of a freshly, independently generated Fulcio root CA
-# for kind-dev (openssl req -x509 -newkey ed25519, platform-cicd's docs/image-signing.md
-# documented procedure) - deliberately not a copy of kind-observe's trust root. The
-# matching private key + passphrase were used only to create the fulcio-secret and
-# fulcio-server-config Secrets directly on kind-dev (kubectl create secret) and were
-# never written to any repo or persisted anywhere else.
-#
-fulcio:
-  issuerCACert: |
-    -----BEGIN CERTIFICATE-----
-    MIIDBTCCAe2gAwIBAgIIT57cb6Nt1KIwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
-    AxMKa3ViZXJuZXRlczAeFw0yNjA4MjMxNzU4MDdaFw0zNjA4MjAxODAzMDdaMBUx
-    EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-    AoIBAQCXjZTC+AobDYgIIJ/Ig655IzUrTGM7pUMoCR8vBfVuOzic3roqiomYncme
-    xWDIUyyTWS3DxQ6x3aLv1lkpLBDg+JJiO7sskkDHBQnFoK5tkjpYFEW3ppfSzX2G
-    Ae1x1rMKfj8Y7BoRKe8UYw4r8SYrMnXtUC4yLPsJPXKlVzZElWbskQGrsyvC7tmo
-    2L3EB+zwmTluHYSs6SWdSnlMfIvxvrWHp88hpgmujcMGtW6emQ68Sa0K8lT6LPHi
-    kvBrG7A8T8AE0htWWafpBV7Qt8Ru1PIosWqEOWgkZeiSV520jVArgSQSeBYGFHLC
-    U8swsgxTbxDKGlEPQ3EsJcRbLbpBAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
-    BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRqzxK3MKUIcYS5F+mVpDaExwT8zzAV
-    BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBH+3OXiH6y
-    LVTt5fmZy0MQvPnag7PFhkloF5eJ7PSOjBxxhS9mroNz4VrlctttvNhzR3buBiRK
-    47YJ/+pLKC1w9XW+ltXqrViJKxxM3YI9/0VMB0st8sL+81361N6hjEvxNkumLjH2
-    lUr7Z2uYAoojKDrSYQ1BXW9bBlbO168LBOxW+G9IrxQhJpdfkAhFjS4bWtrFd51o
-    EufNJIiKOzj3OAhrf5JNaznTaqDDl31UnXKYE9xAAy+svyWy9WdZrnfnjZnRWiUF
-    kSyS+18739LcLw/0OlrQ5yGJY+lN1hWsSr+NBndwFi/kTHxAkagE8jsoFod1Ei4O
-    R2QNRW3O6wOK
-    -----END CERTIFICATE-----
-  rootCert: |
-    -----BEGIN CERTIFICATE-----
-    MIIBcTCCASOgAwIBAgIUJ2w2Jqi+9TRA1hWrLTyTBamXoD0wBQYDK2VwMC0xKzAp
-    BgNVBAMMInBsYXRmb3JtLWNpY2Qta2luZC1kZXYtZnVsY2lvLXJvb3QwIBcNMjYw
-    ODI0MDYxNDEyWhgPMjEyNjA3MzEwNjE0MTJaMC0xKzApBgNVBAMMInBsYXRmb3Jt
-    LWNpY2Qta2luZC1kZXYtZnVsY2lvLXJvb3QwKjAFBgMrZXADIQAUPeu8lSP27s40
-    Gmc6xpLAPO6ZBW7hNxN6SqyKVcimEqNTMFEwHQYDVR0OBBYEFForqGA0zSf/c/TB
-    9NqVjl13io+oMB8GA1UdIwQYMBaAFForqGA0zSf/c/TB9NqVjl13io+oMA8GA1Ud
-    EwEB/wQFMAMBAf8wBQYDK2VwA0EASEWC0zcgDY6CGhOQzN7gi8CDdMRRxfeY7Xij
-    pXKw9x/3okHIv5l481a0YH9I+/JGwaSYS4taUFkcS+os9i9fDQ==
-    -----END CERTIFICATE-----
+# fulcio.*/rekor.publicKey removed 2026-09-05 (ADR-0006's "Update",
+# docs/admin/adr/0006-cluster-agnostic-bootstrap.md): both used to be hand-fetched
+# cert material pasted here after the fact. Fulcio's root is now generated live,
+# inside the cluster, by hooks/fulcio-bootstrap-job.yaml on first sync - it's minted
+# fresh as of this change (the second time this cluster's root has rotated; the prior
+# 2026-08-24 root and anything signed under it are unverifiable now regardless, same
+# as that rotation's own note). Rekor's public key is now fetched and applied directly
+# by hooks/rekor-pubkey-sync-job.yaml, retrying until rekor-server answers. Neither is
+# a Helm value any more.
 
 # clusterName (2026-08-16): derives tenantOnboardingApplicationSetName
 # (platform-cicd-tenant-onboarding, the collision-safe name) automatically - see
