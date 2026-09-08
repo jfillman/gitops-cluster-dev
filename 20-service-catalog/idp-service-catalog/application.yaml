@@ -181,7 +181,26 @@ spec:
     # its render step is named render-tektoncicd-resources, not render-github-resources
     # (a directory-scoped grep, not this Application's own include list, is what missed
     # it - this include list is the broad wildcard and was already covering it).
-    targetRevision: v0.3.55
+    # 2026-09-08: bumped v0.3.55 -> v0.3.59. Two real fixes in range (checked via
+    # `git diff v0.3.55 v0.3.59 --stat` against this Application's own xrds/
+    # compositions/*/composition.yaml scope):
+    #   - Fixes stale Infisical hostAPI IP (10.89.0.2, dead podman-network address)
+    #     in secretstore's Composition, replaced with the dev.kiac.local hostname
+    #     already used elsewhere.
+    #   - Drops "Update" from cluster-identity-yaml (applicationenvironment) and
+    #     cicd-identity-yaml (tektoncicd)'s managementPolicies - these were the only
+    #     two RepositoryFile resources in the whole catalog still keeping "Update" for
+    #     self-heal-on-manual-edit. Real production incident: provider-upjet-github's
+    #     RepositoryFile can get permanently stuck at Ready: Creating after any
+    #     transient Create failure (confirmed live during the 2026-09-04/06 GitHub
+    #     rate-limit exhaustions) - with "Update" present, the reconciler then retries
+    #     a real GitHub commit every poll cycle forever, never stabilizing. This
+    #     exhausted the platform's shared 5000/hr GitHub quota live on 2026-09-07/08
+    #     (Backstage was initially suspected, ruled out live - the actual source was
+    #     this reconcile loop). Same tradeoff already accepted for every other
+    #     RepositoryFile in this catalog (loses auto-drift-correction, in exchange for
+    #     not being able to loop forever).
+    targetRevision: v0.3.59
     path: .
     directory:
       recurse: true
