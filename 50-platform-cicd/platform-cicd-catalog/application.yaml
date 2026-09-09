@@ -18,9 +18,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/jfillman/platform-cicd.git
+    repoURL: https://github.com/jfillman/glidepath.git
     targetRevision: main
-    path: charts/platform-cicd-catalog
+    path: charts/glidepath-catalog
     helm:
       releaseName: platform-cicd-catalog
       valuesObject:

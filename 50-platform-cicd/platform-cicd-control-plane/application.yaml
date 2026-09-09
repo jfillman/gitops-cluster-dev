@@ -20,16 +20,19 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/jfillman/platform-cicd.git
+    - repoURL: https://github.com/jfillman/glidepath.git
       targetRevision: main
-      path: charts/platform-cicd-control-plane
+      path: charts/glidepath-control-plane
       helm:
         releaseName: platform-cicd-control-plane
         valuesObject:
           # Must match this source's own repoURL above - the chart derives its GitHub
           # owner from this (see _helpers.tpl's githubOwner helper), required now that
-          # the chart no longer hardcodes a default org.
-          platformCicdRepoUrl: https://github.com/jfillman/platform-cicd.git
+          # the chart no longer hardcodes a default org. Field name stays
+          # platformCicdRepoUrl (not renamed to match glidepath) - the chart's own
+          # values.yaml still calls it that too, a deferred naming-convention item, not
+          # something this repoint changes.
+          platformCicdRepoUrl: https://github.com/jfillman/glidepath.git
         valueFiles:
           # $-ref resolves relative to that source's checkout ROOT.
           - $clustercfg/50-platform-cicd/platform-cicd-control-plane/values-kind-dev.yaml
