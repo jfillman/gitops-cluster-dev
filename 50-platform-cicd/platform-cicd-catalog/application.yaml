@@ -25,8 +25,13 @@ spec:
       releaseName: platform-cicd-catalog
       valuesObject:
         tektonChainsNamespace: tekton-pipelines
-        backstageBaseUrl: http://backstage.backstage.svc.cluster.local:7007   
-        # in-cluster backend URL
+        # Backstage runs on kiac-prod, a different cluster from this one - not an
+        # in-cluster Service DNS name. backstage.prod.kiac.local isn't real DNS either
+        # (only resolves on a developer's own laptop via refresh-kiac-hosts.sh); reaching
+        # it from a pod here also requires the hostAliases entry glidepath-app's own
+        # backstageHostAliasIP value renders (see that value's own comment) - both must
+        # point at the same current kiac-prod IP, kept in sync manually.
+        backstageBaseUrl: http://backstage.prod.kiac.local:7007
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-catalog
