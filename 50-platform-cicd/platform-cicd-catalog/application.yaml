@@ -39,6 +39,11 @@ spec:
         # Confirmed live: curl -H "Host: backstage.prod.kiac.local" http://<ip>:80/
         # returns 200; :7007 gets connection refused.
         backstageBaseUrl: http://backstage.prod.kiac.local
+        # Needed by deliver-onboarding-files.yaml (bakes hostAliases into a newly-
+        # onboarded or resynced app's git-rooted .tekton/*.yaml PipelineRun) - same value
+        # as glidepath-app's own backstageHostAliasIP, kept in sync manually alongside
+        # backstageBaseUrl above whenever kiac-prod restarts.
+        backstageHostAliasIP: "192.168.64.6"
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-catalog
