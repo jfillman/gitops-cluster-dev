@@ -31,7 +31,14 @@ spec:
         # it from a pod here also requires the hostAliases entry glidepath-app's own
         # backstageHostAliasIP value renders (see that value's own comment) - both must
         # point at the same current kiac-prod IP, kept in sync manually.
-        backstageBaseUrl: http://backstage.prod.kiac.local:7007
+        #
+        # Port 80, NOT 7007: kiac's Gateway (kiac-gateway/kiac, see
+        # gitops-cluster-kind-prod/60-backstage/backstage/httproute.yaml) only has an
+        # HTTP listener on port 80 - port 7007 is Backstage's own Service port,
+        # reachable only from inside kiac-prod, never exposed on the node IP directly.
+        # Confirmed live: curl -H "Host: backstage.prod.kiac.local" http://<ip>:80/
+        # returns 200; :7007 gets connection refused.
+        backstageBaseUrl: http://backstage.prod.kiac.local
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-catalog
