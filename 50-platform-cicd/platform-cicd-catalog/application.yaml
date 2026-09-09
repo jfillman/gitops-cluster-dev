@@ -25,6 +25,8 @@ spec:
       releaseName: platform-cicd-catalog
       valuesObject:
         tektonChainsNamespace: tekton-pipelines
+        backstageBaseUrl: http://backstage.backstage.svc.cluster.local:7007   
+        # in-cluster backend URL
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-catalog
