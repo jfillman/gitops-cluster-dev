@@ -43,7 +43,7 @@ spec:
         # onboarded or resynced app's git-rooted .tekton/*.yaml PipelineRun) - same value
         # as glidepath-app's own backstageHostAliasIP, kept in sync manually alongside
         # backstageBaseUrl above whenever kiac-prod restarts.
-        backstageHostAliasIP: "192.168.64.6"
+        backstageHostAliasIP: "192.168.64.3"
   destination:
     server: https://kubernetes.default.svc
     namespace: platform-catalog
