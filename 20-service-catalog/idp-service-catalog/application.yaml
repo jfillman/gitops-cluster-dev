@@ -212,7 +212,17 @@ spec:
     # v0.3.59..v0.3.60's only xrds/compositions/ diff is this one addition (checked
     # via `git diff --stat`) - clean, additive-only, same bar the prior bumps above
     # used.
-    targetRevision: v0.3.60
+    # 2026-09-13: bumped v0.3.60 -> v0.3.62 (matches gitops-cluster-kind-prod's own
+    # bump). v0.3.60's own dig-based readiness check crashes instead of degrading
+    # gracefully on a genuine first reconcile - Sprig's dig only falls through to
+    # its default when a key is fully ABSENT, not when an intermediate level is
+    # PRESENT but nil (v0.3.61), and .observed.resources itself can be nil too, not
+    # just an empty map (v0.3.62). Confirmed live on kiac-prod's checkout-api-
+    # readiness-latency: 36 identical ComposeResources crashes over 16 minutes
+    # before v0.3.61, then a second crash one level up until v0.3.62. Only
+    # xrds/compositions/ diff across both bumps is compositions/slo/composition.yaml
+    # (checked via `git diff --stat`).
+    targetRevision: v0.3.62
     path: .
     directory:
       recurse: true
