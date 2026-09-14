@@ -222,7 +222,7 @@ spec:
     # before v0.3.61, then a second crash one level up until v0.3.62. Only
     # xrds/compositions/ diff across both bumps is compositions/slo/composition.yaml
     # (checked via `git diff --stat`).
-    targetRevision: v0.3.62
+    targetRevision: v0.3.63
     path: .
     directory:
       recurse: true
