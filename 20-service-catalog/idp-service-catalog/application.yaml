@@ -222,7 +222,12 @@ spec:
     # before v0.3.61, then a second crash one level up until v0.3.62. Only
     # xrds/compositions/ diff across both bumps is compositions/slo/composition.yaml
     # (checked via `git diff --stat`).
-    targetRevision: v0.3.63
+    # v0.3.71: fixes a real prod-config-wipe bug (values-yaml.yaml's Delete
+    # management policy let a transient $clusterOk gate flap delete-then-recreate
+    # a live app's already-deployed rollout.image/releaseTracking, confirmed on
+    # order-api 2026-09-15) plus 3 already-tagged SLO namespace/naming fixes that
+    # had never been adopted here (v0.3.63 was cut before any of them existed).
+    targetRevision: v0.3.71
     path: .
     directory:
       recurse: true
