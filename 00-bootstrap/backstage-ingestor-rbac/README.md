@@ -1,11 +1,18 @@
 # backstage-ingestor-rbac
 
-Read-only RBAC on this cluster (`kind-dev`) for the `kubernetes-ingestor` Backstage
-plugin running on `kind-man` (`idp/docs/backstage-design.md`, "Catalog ingestion" -
-Phase 2). Backstage doesn't run on this cluster, so unlike `kind-man`'s own
-`backstage-ingestor` ServiceAccount (which uses its pod's kubelet-projected, auto-
-rotating token), this one needs a real, long-lived token Secret that Backstage
-authenticates with remotely.
+RBAC on this cluster (`kind-dev`) for the `backstage-ingestor` ServiceAccount used by
+the `kubernetes-ingestor` Backstage plugin running on `kind-man`
+(`idp/docs/backstage-design.md`, "Catalog ingestion" - Phase 2) - and, since
+2026-09-14, by Tower's own cross-cluster reads/actions, which reuse this same identity
+rather than holding a second one. Backstage doesn't run on this cluster, so unlike
+`kind-man`'s own `backstage-ingestor` ServiceAccount (which uses its pod's
+kubelet-projected, auto-rotating token), this one needs a real, long-lived token
+Secret that Backstage authenticates with remotely.
+
+Read-only apart from one deliberate exception: `create` on `pipelineruns.tekton.dev`
+(`backstage-tekton-rerun` ClusterRole, HANDOFF-tower-write-actions.md Tier 1) backs
+Tower's CI/CD tab "Re-run" action on a failed PipelineRun. Every other grant in
+`rbac.yaml` stays `get`/`list`/`watch` only.
 
 `rbac.yaml` creates that token Secret (`backstage-ingestor-token`, type
 `kubernetes.io/service-account-token`) automatically - Kubernetes mints the token

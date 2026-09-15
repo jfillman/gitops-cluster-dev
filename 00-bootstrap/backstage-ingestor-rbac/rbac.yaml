@@ -175,3 +175,39 @@ subjects:
   - kind: ServiceAccount
     name: backstage-ingestor
     namespace: backstage-system
+---
+# Tower's Tekton "Re-run" action (2026-09-14, HANDOFF-tower-write-actions.md
+# Tier 1 - the write-action security framework that handoff establishes:
+# a "delegated action" whose blast radius is scoped by RESOURCE KIND, not a
+# broad standing grant). This is the one deliberate exception to this file's
+# otherwise read-only posture (README.md) - `create` on PipelineRuns only,
+# nothing else: no get/list/watch here because Tower already reads
+# PipelineRuns/TaskRuns through the ordinary Kubernetes proxy's ClusterRole
+# `view` binding above, and no patch/delete because re-running means
+# submitting a brand-new PipelineRun (a clone of the failed one, fresh
+# generateName), never mutating or removing the original. Cluster-scoped
+# (not namespaced to one app's app-<name>-cicd) for the same reason
+# backstage-argo-rollouts-viewer above is cluster-scoped: onboarded apps each
+# get their own -cicd namespace and this identity has no way to know the
+# full set up front, same as every other resource-kind grant in this file.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backstage-tekton-rerun
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-ingestor-tekton-rerun
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backstage-tekton-rerun
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
