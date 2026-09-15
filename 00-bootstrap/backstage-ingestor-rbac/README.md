@@ -9,10 +9,12 @@ rather than holding a second one. Backstage doesn't run on this cluster, so unli
 kubelet-projected, auto-rotating token), this one needs a real, long-lived token
 Secret that Backstage authenticates with remotely.
 
-Read-only apart from one deliberate exception: `create` on `pipelineruns.tekton.dev`
-(`backstage-tekton-rerun` ClusterRole, HANDOFF-tower-write-actions.md Tier 1) backs
-Tower's CI/CD tab "Re-run" action on a failed PipelineRun. Every other grant in
-`rbac.yaml` stays `get`/`list`/`watch` only.
+Read-only apart from one deliberate exception: `create` + `patch` on
+`pipelineruns.tekton.dev` (`backstage-tekton-rerun` ClusterRole,
+HANDOFF-tower-write-actions.md Tier 1) backs Tower's CI/CD tab "Re-run" (create,
+2026-09-14) and "Cancel" (patch, 2026-09-15 - a spec.status merge-patch to
+`CancelledRunFinally`) actions on a PipelineRun. Every other grant in `rbac.yaml`
+stays `get`/`list`/`watch` only.
 
 `rbac.yaml` creates that token Secret (`backstage-ingestor-token`, type
 `kubernetes.io/service-account-token`) automatically - Kubernetes mints the token

@@ -176,28 +176,46 @@ subjects:
     name: backstage-ingestor
     namespace: backstage-system
 ---
-# Tower's Tekton "Re-run" action (2026-09-14, HANDOFF-tower-write-actions.md
-# Tier 1 - the write-action security framework that handoff establishes:
-# a "delegated action" whose blast radius is scoped by RESOURCE KIND, not a
-# broad standing grant). This is the one deliberate exception to this file's
-# otherwise read-only posture (README.md) - `create` on PipelineRuns only,
-# nothing else: no get/list/watch here because Tower already reads
-# PipelineRuns/TaskRuns through the ordinary Kubernetes proxy's ClusterRole
-# `view` binding above, and no patch/delete because re-running means
-# submitting a brand-new PipelineRun (a clone of the failed one, fresh
-# generateName), never mutating or removing the original. Cluster-scoped
-# (not namespaced to one app's app-<name>-cicd) for the same reason
-# backstage-argo-rollouts-viewer above is cluster-scoped: onboarded apps each
-# get their own -cicd namespace and this identity has no way to know the
-# full set up front, same as every other resource-kind grant in this file.
+# Tower's Tekton "Re-run" + "Cancel" actions (2026-09-14/15,
+# HANDOFF-tower-write-actions.md Tier 1 - the write-action security
+# framework that handoff establishes: a "delegated action" whose blast
+# radius is scoped by RESOURCE KIND, not a broad standing grant). This is
+# the one deliberate exception to this file's otherwise read-only posture
+# (README.md) - `create` + `patch` on PipelineRuns only, nothing else: no
+# get/list/watch here because Tower already reads PipelineRuns/TaskRuns
+# through the ordinary Kubernetes proxy's ClusterRole `view` binding above,
+# and no delete because neither action needs it - re-running submits a
+# brand-new PipelineRun (a clone of the failed one, fresh generateName)
+# rather than mutating the original, and cancelling is itself a `patch`
+# (spec.status -> CancelledRunFinally), never a removal.
+#
+# Note on `patch`'s real scope: Kubernetes RBAC has no field-level
+# granularity - this verb technically lets the identity PATCH any field of
+# any PipelineRun, not just spec.status, the same way `create` above
+# technically allows any PipelineRun spec, not just a faithful re-run clone.
+# What's actually sent is constrained by this repo's own frontend/backend
+# code (useCancelPipelineRun.ts sends only a spec.status merge-patch), not
+# by RBAC itself - narrowing further would need a validating webhook, which
+# doesn't exist here. Same honest-scope posture as every other grant in
+# this file.
+#
+# Cluster-scoped (not namespaced to one app's app-<name>-cicd) for the same
+# reason backstage-argo-rollouts-viewer above is cluster-scoped: onboarded
+# apps each get their own -cicd namespace and this identity has no way to
+# know the full set up front, same as every other resource-kind grant here.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  # Name predates Cancel (2026-09-14, re-run only) - kept as-is rather than
+  # renamed to `...-actions` so this stays the same object ArgoCD already
+  # manages instead of orphaning it (this Application's syncPolicy has no
+  # `prune: true`, so a rename here wouldn't clean up the old name on its
+  # own). The rules below are what actually govern scope, not the name.
   name: backstage-tekton-rerun
 rules:
   - apiGroups: ["tekton.dev"]
     resources: ["pipelineruns"]
-    verbs: ["create"]
+    verbs: ["create", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
