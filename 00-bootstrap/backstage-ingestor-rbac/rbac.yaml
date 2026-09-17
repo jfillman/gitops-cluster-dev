@@ -301,3 +301,50 @@ subjects:
   - kind: ServiceAccount
     name: backstage-ingestor
     namespace: backstage-system
+---
+# Tekton Results read (2026-09-17, Tower's Release Record - "pull as much
+# build/pipeline data as it can into the record"). Same shape as
+# backstage-ingestor-rekor-proxy above and for the same reason: the Results
+# API server (tekton-results-api-service, installed via the tektoncd/
+# operator's TektonConfig CR - see 50-platform-cicd/tekton-operator/
+# tektonconfig.yaml) is a namespaced Service with no route of its own, so
+# services/proxy is what lets this identity reach it without a direct
+# network path. One real difference from Rekor: this backend is TLS-only on
+# its single port (gRPC+REST content-negotiated on the same socket, see
+# glidepath's own docs/admin/tekton-results.md) - the caller-side proxy path
+# needs an `https:` scheme prefix on the service segment for that
+# (`.../services/https:tekton-results-api-service:8080/proxy/...`), and
+# resourceNames lists every literal segment string a caller might
+# reasonably use for the same reason the Rekor grant's own comment gives:
+# what's authorized is checked against the exact string in the URL path,
+# not the bare service name. NOT confirmed live as of this grant being
+# added - see the backstage repo's packages/app/src/modules/tower/tekton/
+# useTektonResultsRuns.ts for the consumer and its own "unverified" caveats,
+# and HANDOFF-tower-tekton-results.md for the verification recipe.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backstage-ingestor-tekton-results-proxy
+  namespace: tekton-pipelines
+rules:
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    resourceNames:
+      - tekton-results-api-service
+      - tekton-results-api-service:8080
+      - "https:tekton-results-api-service:8080"
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backstage-ingestor-tekton-results-proxy
+  namespace: tekton-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backstage-ingestor-tekton-results-proxy
+subjects:
+  - kind: ServiceAccount
+    name: backstage-ingestor
+    namespace: backstage-system
