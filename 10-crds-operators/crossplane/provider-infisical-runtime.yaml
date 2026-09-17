@@ -11,6 +11,11 @@
 # externally-imposed GitHub rate limit, root-caused live) - this provider talks to a
 # self-hosted in-cluster Infisical instance with no comparable external limit, so the
 # binary's own defaults apply. Revisit if a real reconcile-load problem shows up.
+#
+# containers[0].name is required even with no arg overrides - confirmed live
+# (kubectl apply --dry-run=server) that DeploymentRuntimeConfig's
+# deploymentTemplate.spec.template.spec.containers is a required field, not an
+# optional strategic-merge overlay the way an empty template.spec: {} would suggest.
 apiVersion: pkg.crossplane.io/v1beta1
 kind: DeploymentRuntimeConfig
 metadata:
@@ -25,4 +30,6 @@ spec:
         matchLabels:
           pkg.crossplane.io/provider: provider-infisical
       template:
-        spec: {}
+        spec:
+          containers:
+            - name: package-runtime
