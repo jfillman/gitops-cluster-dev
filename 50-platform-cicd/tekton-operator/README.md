@@ -96,3 +96,27 @@ vendored `pipelines-as-code@v0.49.0` webhook validation code that otherwise bloc
 install - confirmed live on kiac-dev 2026-09-02, see that file's header for the full
 panic trace and mechanism. Both are workarounds for the same upstream operator version;
 the real fix is bumping the vendored `tektoncd/operator` release.
+
+**Update 2026-09-17, Tekton Results enabled (this section's earlier "Results confirmed
+absent" is stale)**: `result.disabled` flipped to `false` for long-term pipeline data
+retention - a durable archive of full PipelineRun/TaskRun objects and step logs, which
+nothing in this platform previously provided (Grafana/DORA-exporter/CDEvents track
+metrics and events, not the run objects themselves; `pipelinerun-pruner-cronjob` just
+deletes them). Uses the operator's own auto-managed internal Postgres (`is_external_db:
+false`, unchanged) rather than a dedicated external DB - no general-purpose Postgres
+provisioning path exists in this stack. Object storage (result blobs + step logs) reuses
+the existing observability MinIO instance via a new `tekton-results` bucket
+(`40-observability/minio/create-buckets-job.yaml`) and a new `tekton-results-s3-secret.yaml`
+in this directory. `watcher.completed_run_grace_period: "1h"` makes Results the primary
+CR-cleanup path, well ahead of `pipelinerun-pruner-cronjob`'s 24h retention, which now
+acts as a safety net rather than racing Results for the same objects.
+
+**Deliberately no `HTTPRoute`** for the Results API, unlike `tekton-dashboard-ui`'s -
+confirmed live the API server is TLS-only on its single port (gRPC+REST share one
+socket; upstream install docs require generating a TLS cert as a hard prerequisite), and
+kiac's Gateway has only a plain HTTP/80 listener today. A plain HTTPRoute can't front a
+TLS-only backend - Traefik would send cleartext to a TLS socket and the handshake would
+fail every time. Exposing this externally needs a real Gateway TLS/passthrough listener,
+out of scope here; access is via `tkn results` CLI or `kubectl port-forward` until that
+exists. Full design writeup: `docs/admin/tekton-results.md` and
+`docs/admin/adr/0016-tekton-results-archival.md` in `glidepath`.
