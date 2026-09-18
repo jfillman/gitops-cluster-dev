@@ -303,43 +303,47 @@ subjects:
     namespace: backstage-system
 ---
 # Tekton Results read (2026-09-17, Tower's Release Record - "pull as much
-# build/pipeline data as it can into the record"). Same shape as
-# backstage-ingestor-rekor-proxy above and for the same reason: the Results
-# API server (tekton-results-api-service, installed via the tektoncd/
-# operator's TektonConfig CR - see 50-platform-cicd/tekton-operator/
-# tektonconfig.yaml) is a namespaced Service with no route of its own, so
-# services/proxy is what lets this identity reach it without a direct
-# network path. One real difference from Rekor: this backend is TLS-only on
-# its single port (gRPC+REST content-negotiated on the same socket, see
-# glidepath's own docs/admin/tekton-results.md) - the caller-side proxy path
-# needs an `https:` scheme prefix on the service segment for that
-# (`.../services/https:tekton-results-api-service:8080/proxy/...`), and
-# resourceNames lists every literal segment string a caller might
-# reasonably use for the same reason the Rekor grant's own comment gives:
-# what's authorized is checked against the exact string in the URL path,
-# not the bare service name. NOT confirmed live as of this grant being
-# added - see the backstage repo's packages/app/src/modules/tower/tekton/
-# useTektonResultsRuns.ts for the consumer and its own "unverified" caveats,
-# and HANDOFF-tower-tekton-results.md for the verification recipe.
+# build/pipeline data as it can into the record"). Originally shaped like
+# backstage-ingestor-rekor-proxy above (proxying straight to
+# tekton-results-api-service), but that path was verified live and does NOT
+# work: the generic services/proxy subresource never forwards this
+# identity's Authorization header to the proxied backend pod, and Results'
+# own API server does its own TokenReview/SubjectAccessReview check that
+# needs to actually see a bearer token - confirmed by hitting Results'
+# ClusterIP directly from an in-cluster debug pod with the same token and
+# getting a clean 200, versus `{"code":16,"message":"unable to find
+# token"}` through services/proxy. Full isolating test in
+# HANDOFF-tower-tekton-results.md.
+#
+# Fix: this grant now targets `tekton-results-relay` (plain HTTP,
+# platform-system - see glidepath's
+# charts/glidepath-control-plane/templates/tekton/tekton-results-relay.yaml
+# and platform/tekton-results-relay/cmd/tekton-results-relay/main.go), a
+# small relay that re-issues the request to the real Results API using ITS
+# OWN ServiceAccount token instead of trying to forward this identity's.
+# This grant still fully controls who may reach the relay at all; Results'
+# own RBAC (granted to the relay's own identity, not this one) decides what
+# can actually be read once there. Plain HTTP on the relay's own incoming
+# side (unlike Results' TLS-only port) means no `https:` scheme-prefix
+# variant is needed here, unlike the original grant.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: backstage-ingestor-tekton-results-proxy
-  namespace: tekton-pipelines
+  namespace: platform-system
 rules:
   - apiGroups: [""]
     resources: ["services/proxy"]
     resourceNames:
-      - tekton-results-api-service
-      - tekton-results-api-service:8080
-      - "https:tekton-results-api-service:8080"
+      - tekton-results-relay
+      - tekton-results-relay:8080
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: backstage-ingestor-tekton-results-proxy
-  namespace: tekton-pipelines
+  namespace: platform-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
