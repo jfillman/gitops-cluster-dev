@@ -140,3 +140,52 @@ spec:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig
     name: provider-infisical-runtime
+---
+# Item 7 (service-catalog-design.md) Sequencing step 1 - the mechanism behind every
+# Component (Redis, Postgres, ...) wraps a real upstream Helm chart via this
+# provider's Release resource, rather than hand-assembled manifests. Version
+# verified against the actual registry before pinning, not just the GitHub release
+# tag (the same discipline provider-github's v0.20.0 trap already taught this
+# catalog) - v1.4.0 confirmed present at xpkg.upbound.io/crossplane-contrib/
+# provider-helm via a direct OCI manifest pull (bearer token + GET .../manifests/
+# v1.4.0 -> 200), not assumed from the tag alone.
+#
+# Namespaced resource family (helm.m.crossplane.io), not the Cluster-scoped one
+# (helm.crossplane.io) - confirmed live via `kubectl api-resources`, not guessed
+# from the provider's own example tree (which, unlike provider-github's stale
+# namespaced/ scaffolding, turned out to have real, filled-in examples for BOTH
+# scopes - the "check the actual installed CRD scope" lesson from that provider
+# still applied, it just didn't catch a doc-staleness bug here). helm.m.crossplane.io
+# Release is NAMESPACED=true; its ClusterProviderConfig (provider-helm-config.yaml,
+# this directory) stays cluster-scoped, referenced by every namespaced Release the
+# same way provider-kubernetes' Object already references its own
+# ClusterProviderConfig - same v2 rule (a namespaced XR's Composition can compose a
+# namespaced managed resource, never a cluster-scoped one directly).
+#
+# Live-verified 2026-09-18 on kind-dev: full create->Ready:True->Synced:True->delete
+# lifecycle against a real throwaway chart (podinfo), clean teardown, no residue.
+# Two real RBAC/config gaps found live during that smoke test, both fixed before
+# this file was written (see provider-helm-config.yaml for the RBAC fix, in-line
+# comments there for the reasoning):
+# 1. The provider's package-manager-granted ClusterRole has zero RBAC for `namespaces`
+#    at cluster scope (same class of gap native-resources-rbac.yaml already
+#    documents for Crossplane's own controller, but for a different
+#    controller/ServiceAccount) - `create failed: failed to create namespace for
+#    release: ... forbidden`.
+# 2. Once past that, the SA also has zero RBAC for the actual resource kinds a
+#    rendered chart creates (Service, Deployment, ...) - expected for a provider
+#    that runs arbitrary `helm install` under the hood, unlike a Composition
+#    composing one fixed, known kind.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-helm
+  labels:
+    platform.io/component: cluster-config
+    platform.io/subcomponent: crds-operators
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-helm:v1.4.0
+  runtimeConfigRef:
+    apiVersion: pkg.crossplane.io/v1beta1
+    kind: DeploymentRuntimeConfig
+    name: provider-helm-runtime
