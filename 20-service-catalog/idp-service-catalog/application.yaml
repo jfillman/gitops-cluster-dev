@@ -267,7 +267,32 @@ spec:
     # locally. Restoring the real secret values into each newly-created
     # project from that backup is the very next step after this bump goes
     # live, not a follow-up someday.
-    targetRevision: v0.3.73
+    # 2026-09-17: bumped from v0.3.73 to v0.3.74 - fixes a self-inflicted parse
+    # bug in v0.3.73 itself: infisicalproject.yaml's new explanatory comment used
+    # a Go-template comment ACTION (`<<- /* ... */ >>`) with a space between `*/`
+    # and the closing `>>`. Go's text/template lexer requires the right delimiter
+    # to immediately follow the comment-close token with zero characters between
+    # - the space broke it with "comment ends before closing delimiter",
+    # confirmed live: all 7 real SecretStore XRs on kiac-dev went
+    # Synced: False/ReconcileError the moment v0.3.73 synced. Root-caused by
+    # extracting the rendered template and parsing it with Go's own text/template
+    # package locally (reproduced the exact error at the exact line). Fixed by
+    # replacing it with a plain `#`-prefixed YAML comment, matching every other
+    # comment block in this Composition's templates (never parsed as a template
+    # action, so this can't recur the same way). Only
+    # compositions/secretstore/composition.yaml changed (checked via `git diff
+    # --stat v0.3.73 v0.3.74`) - same bar every bump above used.
+    #
+    # Confirmed no data loss occurred during the v0.3.73 outage window: because
+    # the render failed entirely, Crossplane never obtained a valid new desired
+    # state to diff the old InfisicalProject CRs against, so no garbage
+    # collection happened - all 7 apps' old CRs stayed Ready/untouched the whole
+    # time (`kubectl get infisicalprojects.secrets.idp.io -A` confirmed all
+    # PHASE: Ready, zero new provider-infisical Project resources existed). The
+    # REAL CONSEQUENCE warning above still applies in full now that this bump
+    # actually renders cleanly - secret backup/restore is still the very next
+    # step once this reaches kiac-dev.
+    targetRevision: v0.3.74
     path: .
     directory:
       recurse: true
