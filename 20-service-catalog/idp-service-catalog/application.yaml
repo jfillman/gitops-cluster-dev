@@ -237,7 +237,37 @@ spec:
     # rollout.image/releaseTracking, confirmed on order-api 2026-09-15) plus
     # 3 already-tagged SLO namespace/naming fixes that had never been adopted
     # here (v0.3.63 was cut before any of them existed).
-    targetRevision: v0.3.72
+    # 2026-09-18: bumped from v0.3.72 to v0.3.73 - SecretStore's Composition now
+    # renders github.com/jfillman/provider-infisical's real resource chain
+    # (Project/ProjectEnvironment/Identity/IdentityKubernetesAuth/ProjectIdentity/
+    # a synthetic identityId Secret) for kubernetes-auth clusters (kiac-dev, the
+    # one that hosts Infisical directly), replacing the hand-rolled
+    # infisical-secretstore-operator's InfisicalProject CR for that path.
+    # Universal-auth clusters (kind-prod) are unaffected - that branch still
+    # renders the old CR, deliberately, since IdentityUniversalAuthClientSecret
+    # hits a real bug in terraform-provider-infisical's own Go SDK. Only
+    # compositions/secretstore/composition.yaml changed in range (checked via
+    # `git diff --stat v0.3.72 v0.3.73` against this Application's own
+    # xrds/compositions/*/composition.yaml scope) - same bar every bump above
+    # used.
+    #
+    # REAL CONSEQUENCE, not a routine additive bump like most bumps above:
+    # every already-onboarded kiac-dev app's existing InfisicalProject CR falls
+    # out of the new template's render set on its very next reconcile
+    # (compositionUpdatePolicy is unset/Automatic on all of them - confirmed
+    # live) - Crossplane garbage-collects it, which fires
+    # infisical-secretstore-operator's own on_delete() handler
+    # (unconditional, no guard: DELETE /api/v1/projects/{id}), permanently
+    # deleting the real Infisical project AND every secret stored in it. New
+    # Project/Identity/etc. get created fresh, empty, under new credentials.
+    # Before this bump: every affected project's secrets were backed up twice
+    # (local file export + live sibling "-backup" projects in Infisical
+    # itself, both verified secret-count-for-secret-count against the
+    # originals) - see infisical-backups/kiac-dev-full-export-20260917-184924/
+    # locally. Restoring the real secret values into each newly-created
+    # project from that backup is the very next step after this bump goes
+    # live, not a follow-up someday.
+    targetRevision: v0.3.73
     path: .
     directory:
       recurse: true
