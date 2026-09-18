@@ -292,7 +292,41 @@ spec:
     # REAL CONSEQUENCE warning above still applies in full now that this bump
     # actually renders cleanly - secret backup/restore is still the very next
     # step once this reaches kiac-dev.
-    targetRevision: v0.3.74
+    # 2026-09-17: bumped from v0.3.74 to v0.3.75 - found live during the real
+    # cutover itself, right after v0.3.74 unblocked all 7 XRs: the synthetic
+    # identityId Secret's Object resource (provider-kubernetes) used
+    # spec.forProvider.manifest.stringData, which the API server silently
+    # converts to `data` server-side and never persists as `stringData` - so
+    # provider-kubernetes' managedFields-based Observe (which extracts only the
+    # fields it owns by walking the desired manifest's own field paths) found
+    # nothing at the stringData path and errored converting a nil into a map
+    # ("unable to convert managed fields ... expected map, got <nil>",
+    # ReconcileError on checkout-api-kind-dev's Object the moment it reached its
+    # first real Observe pass, right after its old InfisicalProject CR was
+    # manually deleted to free the project slug - see below). Fixed by switching
+    # to `data` with an explicit b64enc. Only
+    # compositions/secretstore/composition.yaml changed (checked via `git diff
+    # --stat v0.3.74 v0.3.75`) - same bar every bump above used. Caught and fixed
+    # before touching the other 6 apps' old CRs, so they hit this only once
+    # collectively, not once each.
+    #
+    # STATUS OF THE REAL CUTOVER as of this bump: Crossplane does NOT
+    # auto-garbage-collect the old InfisicalProject CRs just because they fell
+    # out of the Composition's render set (confirmed live: the CR's ref
+    # disappeared from the XR's own spec.resourceRefs immediately, but the CR
+    # itself sat untouched, Ready, for 8+ minutes across 20+ reconciles - the new
+    # Project resource simply kept failing with a 400 "slug already exists"
+    # since Infisical enforces unique slugs org-wide and the old project still
+    # held it). The real mechanism is: manually delete each old InfisicalProject
+    # CR (verified backup exists first) to free its slug, which fires the old
+    # kopf operator's on_delete() and lets the new Project create cleanly on
+    # retry. checkout-api-kind-dev was cut over this way as the live canary
+    # before this bump (old CR deleted, new chain verified reaching Ready). The
+    # other 7 apps' (7 cicd + platform-cicd) old CRs are still intact/untouched -
+    # same one-at-a-time, verify-then-proceed approach continues after this
+    # bump lands, restoring each app's secrets from backup immediately after its
+    # own cutover.
+    targetRevision: v0.3.75
     path: .
     directory:
       recurse: true
