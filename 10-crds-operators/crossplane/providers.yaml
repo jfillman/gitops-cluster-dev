@@ -55,6 +55,27 @@ spec:
 # (crossplane.io/paused) directly in-cluster - see checkout-api-kind-prod-{prod,
 # staging}-values-yaml and order-api-kind-prod-prod-values-yaml in app-checkout-api-cicd/
 # app-order-api-cicd.
+#
+# 2026-09-18: repointed at a self-built, patched fork -
+# github.com/jfillman/provider-upjet-github - instead of the never-updated
+# upstream xpkg.upbound.io package. Both bugs above are now fixed: Bug 1 (this
+# comment's own "KNOWN ROOT CAUSE" section) needed zero code changes - the fork's
+# main branch was already 51 commits ahead of v0.19.1 and already carried the real
+# upstream fix (commit 9a889c6, "chore: update terraform provider to 6.13.0"); the
+# blocker was purely that nothing past v0.19.1 was ever published to
+# xpkg.upbound.io, so building+publishing the fork's own main closed that gap
+# without touching Go code. Bug 2 (RepositoryFile permanently stuck Ready:False
+# after an interrupted create - crossplane/upjet#682, still open/unmerged) is
+# fixed by a local patch adding managed.WithDeterministicExternalName(true) to
+# RepositoryFile's generated controller (hack/patch-deterministic-external-name.sh
+# in the fork, reapplied after every `make generate` so it survives rebasing onto
+# newer upstream tags). Built+published multi-arch via this repo's own vendored
+# build system (ghcr.io/jfillman/provider-upjet-github), same pattern already
+# proven for provider-infisical and function-rollout-watcher.
+#
+# Rollout: canary-verify against one already-paused RepositoryFile
+# (checkout-api-kind-prod-staging-values-yaml or similar) before unpausing the
+# rest of the fleet-wide-paused set - see the three resources named above.
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -63,7 +84,7 @@ metadata:
     platform.io/component: cluster-config
     platform.io/subcomponent: crds-operators
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-upjet-github:v0.19.1
+  package: ghcr.io/jfillman/provider-upjet-github:v0.20.0-2.g7530c3d
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig
