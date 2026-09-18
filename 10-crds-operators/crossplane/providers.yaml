@@ -95,11 +95,14 @@ spec:
 # provider, wrapping the official Infisical/infisical Terraform provider instead of
 # hand-written REST calls. Source: github.com/jfillman/provider-infisical.
 #
-# Installed alongside the existing operator, not replacing it yet - the Composition
-# migration (SecretStore's templates re-pointed at this provider's native
-# Project/ProjectEnvironment/Identity/... kinds instead of
-# secrets.idp.io/v1alpha1 InfisicalProject/InfisicalEnvironment) is a separate,
-# later step, done once this install itself is live-verified.
+# 2026-09-18: all 7 real app-tier SecretStore XRs on this cluster are now live on
+# this provider's native resource chain (airframe v0.3.75 cutover, secrets restored
+# from the pre-migration backup, verified key-for-key). The old operator is NOT yet
+# decommissioned - platform-cicd-control-plane (glidepath repo) still renders its
+# own InfisicalProject CR directly for its platform-wide operational secrets (NOT
+# through this catalog's SecretStore XRD - see that chart's own infisical-project.yaml
+# header). That migration + the operator's full removal is the very next step; see
+# 10-crds-operators/infisical-secretstore-operator/ for its current state.
 #
 # MVP resource set mirrors the current operator's scope exactly: Project,
 # ProjectEnvironment, Identity, IdentityUniversalAuth,
@@ -116,6 +119,14 @@ spec:
 # into a single-object struct field) that blocks its Observe path entirely - not
 # fixable from this repo, worth filing upstream; the resource is still installed
 # since Create-side generation/config is otherwise correct.
+#
+# v0.0.0-6.g142bb1b: Identity now publishes its provider-assigned id via
+# writeConnectionSecretToRef (key "identityId") - default upjet behavior published an
+# empty connection secret here (confirmed live), since "id" isn't itself a sensitive
+# Terraform attribute. Needed so platform-cicd-control-plane's own Helm-rendered
+# migration (a plain manifest, no Crossplane Composition, no .observed.resources
+# access) can get this value into a real k8s Secret using Crossplane's native
+# mechanism, matching what cluster-secret-store.yaml already expects.
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -124,7 +135,7 @@ metadata:
     platform.io/component: cluster-config
     platform.io/subcomponent: crds-operators
 spec:
-  package: ghcr.io/jfillman/provider-infisical:v0.0.0-5.gc808a9d
+  package: ghcr.io/jfillman/provider-infisical:v0.0.0-6.g142bb1b
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig
